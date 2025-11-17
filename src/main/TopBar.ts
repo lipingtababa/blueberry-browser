@@ -31,9 +31,12 @@ export class TopBar {
         process.env["ELECTRON_RENDERER_URL"]
       );
       webContentsView.webContents.loadURL(topbarUrl.toString());
+
+      // Open DevTools in development mode
+      webContentsView.webContents.openDevTools({ mode: 'detach' });
     } else {
       webContentsView.webContents.loadFile(
-        join(__dirname, "../renderer/topbar.html")
+        join(__dirname, "../renderer/topbar/index.html")
       );
     }
 

@@ -2,9 +2,9 @@ import { WebContents } from "electron";
 import { streamText, type LanguageModel, type CoreMessage } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
 import * as dotenv from "dotenv";
 import { join } from "path";
-import type { Window } from "./Window";
 
 // Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../.env") });
@@ -19,19 +19,18 @@ interface StreamChunk {
   isComplete: boolean;
 }
 
-type LLMProvider = "openai" | "anthropic";
+type LLMProvider = "openai" | "anthropic" | "google";
 
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
-  openai: "gpt-4o-mini",
+  openai: "gpt-4o", // Try standard gpt-4o
   anthropic: "claude-3-5-sonnet-20241022",
+  google: "gemini-2.5-flash",
 };
 
-const MAX_CONTEXT_LENGTH = 4000;
 const DEFAULT_TEMPERATURE = 0.7;
 
 export class LLMClient {
   private readonly webContents: WebContents;
-  private window: Window | null = null;
   private readonly provider: LLMProvider;
   private readonly modelName: string;
   private readonly model: LanguageModel | null;
@@ -46,14 +45,10 @@ export class LLMClient {
     this.logInitializationStatus();
   }
 
-  // Set the window reference after construction to avoid circular dependencies
-  setWindow(window: Window): void {
-    this.window = window;
-  }
-
   private getProvider(): LLMProvider {
     const provider = process.env.LLM_PROVIDER?.toLowerCase();
     if (provider === "anthropic") return "anthropic";
+    if (provider === "google") return "google";
     return "openai"; // Default to OpenAI
   }
 
@@ -70,6 +65,8 @@ export class LLMClient {
         return anthropic(this.modelName);
       case "openai":
         return openai(this.modelName);
+      case "google":
+        return google(this.modelName);
       default:
         return null;
     }
@@ -81,6 +78,8 @@ export class LLMClient {
         return process.env.ANTHROPIC_API_KEY;
       case "openai":
         return process.env.OPENAI_API_KEY;
+      case "google":
+        return process.env.GOOGLE_GENERATIVE_AI_API_KEY;
       default:
         return undefined;
     }
@@ -93,7 +92,8 @@ export class LLMClient {
       );
     } else {
       const keyName =
-        this.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY";
+        this.provider === "anthropic" ? "ANTHROPIC_API_KEY" :
+        this.provider === "google" ? "GOOGLE_GENERATIVE_AI_API_KEY" : "OPENAI_API_KEY";
       console.error(
         `❌ LLM Client initialization failed: ${keyName} not found in environment variables.\n` +
           `Please add your API key to the .env file in the project root.`
@@ -102,50 +102,38 @@ export class LLMClient {
   }
 
   async sendChatMessage(request: ChatRequest): Promise<void> {
+    console.log("🔵 [DEBUG] sendChatMessage called with:", {
+      messageId: request.messageId,
+      messageLength: request.message.length,
+      provider: this.provider,
+      model: this.modelName,
+      hasModel: !!this.model
+    });
+
     try {
-      // Get screenshot from active tab if available
-      let screenshot: string | null = null;
-      if (this.window) {
-        const activeTab = this.window.activeTab;
-        if (activeTab) {
-          try {
-            const image = await activeTab.screenshot();
-            screenshot = image.toDataURL();
-          } catch (error) {
-            console.error("Failed to capture screenshot:", error);
-          }
-        }
-      }
+      // Clear messages for testing to ensure we start fresh
+      console.log("🔵 [DEBUG] TEST: Clearing message history before request");
+      this.messages = [];
 
-      // Build user message content with screenshot first, then text
-      const userContent: any[] = [];
-      
-      // Add screenshot as the first part if available
-      if (screenshot) {
-        userContent.push({
-          type: "image",
-          image: screenshot,
-        });
-      }
-      
-      // Add text content
-      userContent.push({
-        type: "text",
-        text: request.message,
-      });
+      // TEST A: Screenshot disabled for testing
+      console.log("🔵 [DEBUG] TEST A: Screenshot disabled for testing");
 
-      // Create user message in CoreMessage format
+      // TEST B: Use simple string content like getCompletion() which works
+      console.log("🔵 [DEBUG] TEST B: Using simple string content (no array, no image)");
+
+      // Create user message in CoreMessage format - SIMPLE TEXT ONLY
       const userMessage: CoreMessage = {
         role: "user",
-        content: userContent.length === 1 ? request.message : userContent,
+        content: request.message, // Simple string, not array
       };
-      
+
       this.messages.push(userMessage);
 
       // Send updated messages to renderer
       this.sendMessagesToRenderer();
 
       if (!this.model) {
+        console.log("🔴 [DEBUG] Model is not initialized!");
         this.sendErrorMessage(
           request.messageId,
           "LLM service is not configured. Please add your API key to the .env file."
@@ -153,11 +141,86 @@ export class LLMClient {
         return;
       }
 
-      const messages = await this.prepareMessagesWithContext(request);
-      await this.streamResponse(messages, request.messageId);
+      // TEST D: Try using getCompletion() instead to see if THAT works
+      console.log("🔵 [DEBUG] TEST D: Using getCompletion() instead of streamResponse");
+      try {
+        const completion = await this.getCompletion(request.message);
+        console.log("🔵 [DEBUG] getCompletion() returned:", completion.substring(0, 100));
+
+        // Add assistant message to history
+        this.messages.push({
+          role: "assistant",
+          content: completion,
+        });
+        this.sendMessagesToRenderer();
+
+        // Send to renderer
+        this.sendStreamChunk(request.messageId, {
+          content: completion,
+          isComplete: true,
+        });
+      } catch (error) {
+        console.error("🔴 [DEBUG] getCompletion() failed:", error);
+        throw error;
+      }
+      console.log("🟢 [DEBUG] Stream response completed successfully");
     } catch (error) {
       console.error("Error in LLM request:", error);
       this.handleStreamError(error, request.messageId);
+    }
+  }
+
+  /**
+   * Get a completion without streaming or message history
+   * Useful for one-off requests like content formatting
+   */
+  async getCompletion(prompt: string): Promise<string> {
+    if (!this.model) {
+      throw new Error("LLM service is not configured. Please add your API key to the .env file.");
+    }
+
+    try {
+      console.log("🔵 [DEBUG getCompletion] Calling streamText with model:", this.modelName);
+      const result = await streamText({
+        model: this.model,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: DEFAULT_TEMPERATURE,
+        maxRetries: 3,
+      });
+
+      console.log("🔵 [DEBUG getCompletion] streamText returned");
+
+      // Try to get response metadata
+      try {
+        const response = await result.response;
+        console.log("🔵 [DEBUG getCompletion] Response metadata:", {
+          id: response.id,
+          model: response.modelId,
+          timestamp: response.timestamp
+        });
+      } catch (e) {
+        console.error("🔴 [DEBUG getCompletion] Error getting response metadata:", e);
+      }
+
+      let fullText = "";
+      let chunkCount = 0;
+      for await (const chunk of result.textStream) {
+        chunkCount++;
+        fullText += chunk;
+        console.log("🔵 [DEBUG getCompletion] Chunk", chunkCount, "length:", chunk.length);
+      }
+
+      console.log("🔵 [DEBUG getCompletion] Total chunks:", chunkCount, "Total length:", fullText.length);
+      return fullText;
+    } catch (error) {
+      console.error("🔴 [DEBUG getCompletion] Error:", error);
+      console.error("🔴 [DEBUG getCompletion] Error stack:", error instanceof Error ? error.stack : 'No stack');
+      throw new Error(this.getErrorMessage(error));
     }
   }
 
@@ -171,133 +234,10 @@ export class LLMClient {
   }
 
   private sendMessagesToRenderer(): void {
+    console.log("📤 [LLM] Sending chat-messages-updated event with", this.messages.length, "messages");
     this.webContents.send("chat-messages-updated", this.messages);
   }
 
-  private async prepareMessagesWithContext(_request: ChatRequest): Promise<CoreMessage[]> {
-    // Get page context from active tab
-    let pageUrl: string | null = null;
-    let pageText: string | null = null;
-    
-    if (this.window) {
-      const activeTab = this.window.activeTab;
-      if (activeTab) {
-        pageUrl = activeTab.url;
-        try {
-          pageText = await activeTab.getTabText();
-        } catch (error) {
-          console.error("Failed to get page text:", error);
-        }
-      }
-    }
-
-    // Build system message
-    const systemMessage: CoreMessage = {
-      role: "system",
-      content: this.buildSystemPrompt(pageUrl, pageText),
-    };
-
-    // Include all messages in history (system + conversation)
-    return [systemMessage, ...this.messages];
-  }
-
-  private buildSystemPrompt(url: string | null, pageText: string | null): string {
-    const parts: string[] = [
-      "You are a helpful AI assistant integrated into a web browser.",
-      "You can analyze and discuss web pages with the user.",
-      "The user's messages may include screenshots of the current page as the first image.",
-    ];
-
-    if (url) {
-      parts.push(`\nCurrent page URL: ${url}`);
-    }
-
-    if (pageText) {
-      const truncatedText = this.truncateText(pageText, MAX_CONTEXT_LENGTH);
-      parts.push(`\nPage content (text):\n${truncatedText}`);
-    }
-
-    parts.push(
-      "\nPlease provide helpful, accurate, and contextual responses about the current webpage.",
-      "If the user asks about specific content, refer to the page content and/or screenshot provided."
-    );
-
-    return parts.join("\n");
-  }
-
-  private truncateText(text: string, maxLength: number): string {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  }
-
-  private async streamResponse(
-    messages: CoreMessage[],
-    messageId: string
-  ): Promise<void> {
-    if (!this.model) {
-      throw new Error("Model not initialized");
-    }
-
-    try {
-      const result = await streamText({
-        model: this.model,
-        messages,
-        temperature: DEFAULT_TEMPERATURE,
-        maxRetries: 3,
-        abortSignal: undefined, // Could add abort controller for cancellation
-      });
-
-      await this.processStream(result.textStream, messageId);
-    } catch (error) {
-      throw error; // Re-throw to be handled by the caller
-    }
-  }
-
-  private async processStream(
-    textStream: AsyncIterable<string>,
-    messageId: string
-  ): Promise<void> {
-    let accumulatedText = "";
-
-    // Create a placeholder assistant message
-    const assistantMessage: CoreMessage = {
-      role: "assistant",
-      content: "",
-    };
-    
-    // Keep track of the index for updates
-    const messageIndex = this.messages.length;
-    this.messages.push(assistantMessage);
-
-    for await (const chunk of textStream) {
-      accumulatedText += chunk;
-
-      // Update assistant message content
-      this.messages[messageIndex] = {
-        role: "assistant",
-        content: accumulatedText,
-      };
-      this.sendMessagesToRenderer();
-
-      this.sendStreamChunk(messageId, {
-        content: chunk,
-        isComplete: false,
-      });
-    }
-
-    // Final update with complete content
-    this.messages[messageIndex] = {
-      role: "assistant",
-      content: accumulatedText,
-    };
-    this.sendMessagesToRenderer();
-
-    // Send the final complete signal
-    this.sendStreamChunk(messageId, {
-      content: accumulatedText,
-      isComplete: true,
-    });
-  }
 
   private handleStreamError(error: unknown, messageId: string): void {
     console.error("Error streaming from LLM:", error);
