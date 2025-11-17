@@ -52,6 +52,16 @@ const sidebarAPI = {
 
   // Tab information
   getActiveTabInfo: () => electronAPI.ipcRenderer.invoke("get-active-tab-info"),
+
+  // Recorder APIs
+  recorderGetRecording: (id: string) =>
+    electronAPI.ipcRenderer.invoke("recorder-get-recording", id),
+  recorderDeleteRecording: (id: string) =>
+    electronAPI.ipcRenderer.invoke("recorder-delete-recording", id),
+
+  // Replayer APIs
+  replayerStart: (options: any) =>
+    electronAPI.ipcRenderer.invoke("replayer-start", options),
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to

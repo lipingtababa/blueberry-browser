@@ -4,6 +4,7 @@ import { useBrowser } from '../contexts/BrowserContext'
 import { ToolBarButton } from '../components/ToolBarButton'
 import { Favicon } from '../components/Favicon'
 import { DarkModeToggle } from '../components/DarkModeToggle'
+import { RecorderControls } from '../components/RecorderControls'
 import { cn } from '@common/lib/utils'
 
 export const AddressBar: React.FC = () => {
@@ -196,6 +197,7 @@ export const AddressBar: React.FC = () => {
 
             {/* Actions Menu */}
             <div className="flex items-center gap-1 app-region-no-drag">
+                <RecorderControls />
                 <DarkModeToggle />
                 <ToolBarButton
                     Icon={isSidebarOpen ? PanelLeftClose : PanelLeft}

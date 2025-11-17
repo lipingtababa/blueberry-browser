@@ -25,9 +25,13 @@ interface TabInfo {
 
 interface SidebarAPI {
   // Chat functionality
-  sendChatMessage: (request: ChatRequest) => Promise<void>;
+  sendChatMessage: (request: Partial<ChatRequest>) => Promise<void>;
+  clearChat: () => Promise<void>;
+  getMessages: () => Promise<any[]>;
   onChatResponse: (callback: (data: ChatResponse) => void) => void;
+  onMessagesUpdated: (callback: (messages: any[]) => void) => void;
   removeChatResponseListener: () => void;
+  removeMessagesUpdatedListener: () => void;
 
   // Page content access
   getPageContent: () => Promise<string | null>;
@@ -36,6 +40,13 @@ interface SidebarAPI {
 
   // Tab information
   getActiveTabInfo: () => Promise<TabInfo | null>;
+
+  // Recorder APIs
+  recorderGetRecording: (id: string) => Promise<{ success: boolean; recording?: any; error?: string }>;
+  recorderDeleteRecording: (id: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Replayer APIs
+  replayerStart: (options: any) => Promise<{ success: boolean; error?: string }>;
 }
 
 declare global {

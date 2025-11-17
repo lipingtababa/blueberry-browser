@@ -1,4 +1,5 @@
 import { NativeImage, WebContentsView } from "electron";
+import { join } from "path";
 
 export class Tab {
   private webContentsView: WebContentsView;
@@ -15,9 +16,10 @@ export class Tab {
     // Create the WebContentsView for web content only
     this.webContentsView = new WebContentsView({
       webPreferences: {
+        preload: join(__dirname, "../preload/tab.js"),
         nodeIntegration: false,
         contextIsolation: true,
-        sandbox: true,
+        sandbox: false, // Need to disable sandbox for preload to work
         webSecurity: true,
       },
     });

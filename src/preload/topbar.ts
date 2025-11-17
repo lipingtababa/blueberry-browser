@@ -31,6 +31,52 @@ const topBarAPI = {
   // Sidebar
   toggleSidebar: () =>
     electronAPI.ipcRenderer.invoke("toggle-sidebar"),
+  showRecordingsList: () =>
+    electronAPI.ipcRenderer.invoke("show-recordings-list"),
+
+  // Recorder
+  recorderStart: (name: string, description?: string) =>
+    electronAPI.ipcRenderer.invoke("recorder-start", name, description),
+  recorderStop: () =>
+    electronAPI.ipcRenderer.invoke("recorder-stop"),
+  recorderPause: () =>
+    electronAPI.ipcRenderer.invoke("recorder-pause"),
+  recorderResume: () =>
+    electronAPI.ipcRenderer.invoke("recorder-resume"),
+  recorderAddManualStep: (description: string) =>
+    electronAPI.ipcRenderer.invoke("recorder-add-manual-step", description),
+  recorderGetState: () =>
+    electronAPI.ipcRenderer.invoke("recorder-get-state"),
+  recorderGetRecordings: () =>
+    electronAPI.ipcRenderer.invoke("recorder-get-recordings"),
+  recorderGetRecording: (id: string) =>
+    electronAPI.ipcRenderer.invoke("recorder-get-recording", id),
+  recorderDeleteRecording: (id: string) =>
+    electronAPI.ipcRenderer.invoke("recorder-delete-recording", id),
+
+  // Replayer
+  replayerStart: (options: any) =>
+    electronAPI.ipcRenderer.invoke("replayer-start", options),
+  replayerPause: () =>
+    electronAPI.ipcRenderer.invoke("replayer-pause"),
+  replayerResume: () =>
+    electronAPI.ipcRenderer.invoke("replayer-resume"),
+  replayerStop: () =>
+    electronAPI.ipcRenderer.invoke("replayer-stop"),
+  replayerGetStatus: () =>
+    electronAPI.ipcRenderer.invoke("replayer-get-status"),
+
+  // Session Manager
+  sessionSave: (domain: string, name?: string) =>
+    electronAPI.ipcRenderer.invoke("session-save", domain, name),
+  sessionRestore: (domain: string, name?: string) =>
+    electronAPI.ipcRenderer.invoke("session-restore", domain, name),
+  sessionHasValid: (domain: string, name?: string) =>
+    electronAPI.ipcRenderer.invoke("session-has-valid", domain, name),
+  sessionDelete: (domain: string, name?: string) =>
+    electronAPI.ipcRenderer.invoke("session-delete", domain, name),
+  sessionList: () =>
+    electronAPI.ipcRenderer.invoke("session-list"),
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to

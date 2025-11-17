@@ -8,13 +8,34 @@ interface Message {
     isStreaming?: boolean
 }
 
+interface Recording {
+    id: string
+    name: string
+    description?: string
+    createdAt: number
+    updatedAt: number
+    actions: any[]
+    metadata?: {
+        targetSite?: string
+        duration?: number
+        manualSteps?: number
+    }
+}
+
 interface ChatContextType {
     messages: Message[]
     isLoading: boolean
+    recordings: Recording[]
+    showRecordings: boolean
 
     // Chat actions
     sendMessage: (content: string) => Promise<void>
     clearChat: () => void
+
+    // Recordings actions
+    closeRecordingsList: () => void
+    replayRecording: (recordingId: string) => Promise<void>
+    deleteRecording: (recordingId: string) => Promise<void>
 
     // Page content access
     getPageContent: () => Promise<string | null>
@@ -35,6 +56,8 @@ export const useChat = () => {
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [messages, setMessages] = useState<Message[]>([])
     const [isLoading, setIsLoading] = useState(false)
+    const [recordings, setRecordings] = useState<Recording[]>([])
+    const [showRecordings, setShowRecordings] = useState(false)
 
     // Load initial messages from main process
     useEffect(() => {
@@ -117,44 +140,117 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [])
 
+    const closeRecordingsList = useCallback(() => {
+        setShowRecordings(false)
+    }, [])
+
+    const replayRecording = useCallback(async (recordingId: string) => {
+        try {
+            const result = await window.sidebarAPI.recorderGetRecording(recordingId)
+            if (!result.success || !result.recording) {
+                alert('Recording not found')
+                return
+            }
+
+            const recording = result.recording
+            const replayResult = await window.sidebarAPI.replayerStart({
+                recording,
+                content: {},
+                skipLogin: false,
+                speed: 1
+            })
+
+            if (replayResult.success) {
+                setShowRecordings(false)
+                console.log('Replay started successfully')
+            } else {
+                alert(`Failed to start replay: ${replayResult.error}`)
+            }
+        } catch (error) {
+            console.error('Failed to replay recording:', error)
+            alert('Failed to replay recording')
+        }
+    }, [])
+
+    const deleteRecording = useCallback(async (recordingId: string) => {
+        if (!confirm('Are you sure you want to delete this recording?')) {
+            return
+        }
+
+        try {
+            const result = await window.sidebarAPI.recorderDeleteRecording(recordingId)
+            if (result.success) {
+                // Remove from local state
+                setRecordings(prev => prev.filter(r => r.id !== recordingId))
+            } else {
+                alert(`Failed to delete recording: ${result.error}`)
+            }
+        } catch (error) {
+            console.error('Failed to delete recording:', error)
+            alert('Failed to delete recording')
+        }
+    }, [])
+
     // Set up message listeners
     useEffect(() => {
         // Listen for streaming response updates
         const handleChatResponse = (data: { messageId: string; content: string; isComplete: boolean }) => {
+            console.log('[CHAT] handleChatResponse:', data)
             if (data.isComplete) {
+                console.log('[CHAT] Response complete, setting isLoading=false')
                 setIsLoading(false)
             }
         }
 
         // Listen for message updates from main process
         const handleMessagesUpdated = (updatedMessages: any[]) => {
+            console.log('[CHAT] handleMessagesUpdated - received messages:', updatedMessages.length)
+            console.log('[CHAT] Messages:', updatedMessages)
             // Convert CoreMessage format to our frontend Message format
             const convertedMessages = updatedMessages.map((msg: any, index: number) => ({
                 id: `msg-${index}`,
                 role: msg.role,
-                content: typeof msg.content === 'string' 
-                    ? msg.content 
+                content: typeof msg.content === 'string'
+                    ? msg.content
                     : msg.content.find((p: any) => p.type === 'text')?.text || '',
                 timestamp: Date.now(),
                 isStreaming: false
             }))
+            console.log('[CHAT] Converted messages:', convertedMessages)
             setMessages(convertedMessages)
+            console.log('[CHAT] Messages state updated')
+        }
+
+        // Listen for recordings list
+        const handleShowRecordings = (recordingsList: Recording[]) => {
+            console.log('[CHAT] Received recordings list:', recordingsList.length)
+            setRecordings(recordingsList)
+            setShowRecordings(true)
         }
 
         window.sidebarAPI.onChatResponse(handleChatResponse)
         window.sidebarAPI.onMessagesUpdated(handleMessagesUpdated)
+        window.electron.ipcRenderer.on('show-recordings', (_event, recordingsList) => {
+            handleShowRecordings(recordingsList)
+        })
 
         return () => {
             window.sidebarAPI.removeChatResponseListener()
             window.sidebarAPI.removeMessagesUpdatedListener()
+            window.electron.ipcRenderer.removeAllListeners('show-recordings')
         }
     }, [])
 
     const value: ChatContextType = {
         messages,
         isLoading,
+        recordings,
+        showRecordings,
         sendMessage,
         clearChat,
+        closeRecordingsList,
+        replayRecording,
+        deleteRecording,
         getPageContent,
         getPageText,
         getCurrentUrl
