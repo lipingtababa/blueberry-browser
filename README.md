@@ -1,85 +1,302 @@
 # Blueberry Browser
 
-> **⚠️ Disclaimer:** I'm not proud of this codebase! It was built in 3 hours. If you have some time left over in the challenge, feel free to refactor and clean things up!
+An Electron-based browser with **workflow automation** - record, edit, and replay browser actions as Playwright scripts.
 
 https://github.com/user-attachments/assets/bbf939e2-d87c-4c77-ab7d-828259f6d28d
 
 ---
 
-## Overview
+## The Problem
 
-You are the **CTO of Blueberry Browser**, a Strawberry competitor. Your mission is to add a feature to Blueberry that makes it superior & more promising than Strawberry.
+Users perform repetitive browser tasks daily: filling forms, navigating workflows, testing applications. These tasks are:
+- **Time-consuming** - Same clicks/typing over and over
+- **Error-prone** - Manual mistakes in repetition
+- **Hard to share** - Can't easily teach others your workflow
+- **Not reusable** - Have to remember and redo everything
 
-But your time is limited—Strawberry is about to raise a two billion dollar Series A round from X-Separator, B17Å and Sequoiadendron giganteum Capital.
+Existing solutions:
+- Browser extensions: Limited access, can't automate everything
+- Selenium/Playwright: Requires coding, not user-friendly
+- Macro tools: Platform-specific, brittle selectors
 
-## 🎯 Task
+## The Solution
 
-Your job is to **clone this repo** and add a unique feature. Some ideas are listed below.
+**Blueberry Browser** records your actions and generates editable Playwright scripts that replay in the same browser window.
 
-It doesn't need to work 100% reliably, or even be completely done. It just has to:
-
-- Show that you are creative and can iterate on novel ideas fast
-- Demonstrate good system thinking and code practices  
-- Prove you are a capable full stack and/or LLM dev
-
-Once you're done, we'll book a call where you'll get to present your work!
-
-If it's cracked, we might just have to acquire Blueberry Browser to stay alive 👀👀👀
-
-### ⏰ Time
-
-**1-2 weeks** is ideal for this challenge. This allows you to work over weekends and during evenings in your own time.
-
-### 📋 Rules
-
-You are allowed to vibe code, but make sure you understand everything so we can ask technical questions.
-
-## 💡 Feature Ideas
-
-### **Browsing History Compiler**
-Track the things that the user is doing inside the browser and figure out from a series of browser states what the user is doing, and perhaps how valuable, repetitive tasks can be re-run by an AI agent.
-
-*Tab state series → Prompt for web agent how to reproduce the work*
-
-### **Coding Agent**
-Sidebar coding agent that can create a script that can run on the open tabs.
-
-Maybe useful for filling forms or changing the page's style so it can extract data but present it in a nicer format.
-
-### **Tab Completion Model**
-Predict next action or what to type, like Cursor's tab completion model.
-
-### **Your Own Idea**
-Feel free to implement your own idea!
-
-> Wanted to try transformers.js for a while? This is your chance! 
-
-> Have an old cool web agent framework you built? Let's see if you can merge it into the browser!
-
-> Think you can add a completely new innovation to the browser concept with some insane, over-engineered React? Lfg!
-
-Make sure you can realistically showcase a simple version of it in the timeframe. You can double check with us first if uncertain! :)
-
-## 💬 Tips
-
-Feel free to write to us with questions or send updates during the process—it's a good way to get a feel for working together.
-
-It can also be a good way for us to give feedback if things are heading in the right or wrong direction.
+**Key Innovation:**
+1. **No code required** - Just click Record, do your task, click Stop
+2. **Editable scripts** - Get standard `.spec.ts` files you can modify
+3. **In-browser replay** - No separate automation window
+4. **Session management** - Save login state, skip repetitive auth
 
 ---
 
-## 🚀 Project Setup
+## Architecture
 
-### Install
+### High-Level Structure
+```
+┌─────────────────────────────────────────────┐
+│           Electron Main Process              │
+│  ┌──────────────┐    ┌──────────────┐       │
+│  │ Window       │───▶│ TopBar       │       │
+│  │ (BrowserView)│    │ (tabs/addr)  │       │
+│  └──────────────┘    └──────────────┘       │
+│         │                    │               │
+│         ▼                    ▼               │
+│  ┌──────────────┐    ┌──────────────┐       │
+│  │ Tab          │    │ SideBar      │       │
+│  │ (web content)│    │ (chat/list)  │       │
+│  └──────────────┘    └──────────────┘       │
+└─────────────────────────────────────────────┘
+```
+
+### Core Components
+
+**Main Process** (`src/main/`):
+- `index.ts` - Entry point, IPC setup
+- `Window.ts` - Main window management
+- `Tab.ts` - Individual tab (BrowserView) management
+- `TopBar.ts` - Address bar and tab controls
+- `SideBar.ts` - Chat and recordings sidebar
+- `ActionRecorder.ts` - Records user actions
+- `PlaywrightGenerator.ts` - Converts actions to `.spec.ts`
+- `ActionReplayer.ts` - Executes Playwright scripts
+- `SessionManager.ts` - Save/restore browser sessions
+- `LLMClient.ts` - AI chat integration
+
+**Renderer Process** (`src/renderer/`):
+- `topbar/` - React UI for tabs, address bar, recorder controls
+- `sidebar/` - React UI for chat and recordings list
+- `lib/logger.ts` - Shared logging utilities
+
+**Preload Scripts** (`src/preload/`):
+- `topbar.ts` - IPC bridge for topbar renderer
+- `sidebar.ts` - IPC bridge for sidebar renderer
+- `tab.ts` - IPC bridge for tab content
+
+### Data Flow: Recording
+
+```
+User Action (click/type)
+    ↓
+ActionRecorder injects listener script
+    ↓
+Capture event (selector, type, value)
+    ↓
+Store in memory array
+    ↓
+On Stop → PlaywrightGenerator
+    ↓
+Generate .spec.ts file
+    ↓
+Save to ~/Library/Application Support/blueberry-browser/recordings/
+    ↓
+Update sidebar recordings list
+```
+
+### Data Flow: Replay
+
+```
+User clicks Replay
+    ↓
+ActionReplayer reads .spec.ts file
+    ↓
+Parse Playwright commands (regex)
+    ↓
+For each command (goto/click/fill/keyboard.press):
+    ↓
+Execute via JS injection in current tab
+    ↓
+Special case: Enter key → form.submit()
+    ↓
+Complete or show error
+```
+
+### IPC Communication
+
+**Main → Renderer:**
+- `recording-started` - Notify recording began
+- `recording-stopped` - Notify recording stopped
+- `replay-complete` - Notify replay finished
+- `recordings-list` - Send available recordings
+
+**Renderer → Main:**
+- `start-recording` - Begin capturing actions
+- `stop-recording` - Stop and save
+- `replay-recording` - Execute a recording
+- `delete-recording` - Remove a recording
+- `get-recordings` - Fetch recordings list
+
+---
+
+## Setup
+
+### Install Dependencies
 ```bash
-$ pnpm install
+pnpm install
+```
+
+### Configure Environment
+Create `.env` in project root:
+```bash
+# Choose one LLM provider
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+
+# OR
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+# OR
+LLM_PROVIDER=google
+GOOGLE_GENERATIVE_AI_API_KEY=...
 ```
 
 ### Development
 ```bash
-$ pnpm dev
+# Standard dev mode
+pnpm dev
+
+# Dev mode with test triggers enabled
+pnpm dev:test
 ```
 
-**Add an OpenAI API key to `.env`** in the root folder.
+### Build
+```bash
+# Type check + build
+pnpm build
 
-Strawberry will reimburse LLM costs, so go crazy! *(Please not more than a few hundred dollars though!)*
+# Platform-specific builds
+pnpm build:mac
+pnpm build:win
+pnpm build:linux
+```
+
+---
+
+## Testing
+
+### Available Test Commands
+```bash
+# Manual chat trigger
+pnpm test:chat:trigger
+
+# Automated chat test
+pnpm test:chat:auto
+
+# Chat test with verification
+pnpm test:chat:verify
+
+# Full integration test
+pnpm test:chat:integration
+```
+
+### Manual Testing Workflow
+1. Start browser: `pnpm dev`
+2. Wait 5 seconds for full initialization
+3. Click **Record** button in toolbar
+4. Perform actions (navigate, click, type, press Enter)
+5. Click **Stop**
+6. Check sidebar for new recording
+7. Click **Replay** to test
+
+### Test Locations
+- `tests/automated/` - Automated test scripts
+- `tests/verify-enter-recording.js` - Enter key verification
+- `test-results/` - Playwright test output
+
+---
+
+## Project Structure
+
+```
+blueberry-browser/
+├── src/
+│   ├── main/              # Electron main process
+│   │   ├── index.ts       # Entry point
+│   │   ├── Window.ts      # Window management
+│   │   ├── Tab.ts         # Tab (BrowserView) logic
+│   │   ├── ActionRecorder.ts
+│   │   ├── PlaywrightGenerator.ts
+│   │   ├── ActionReplayer.ts
+│   │   └── SessionManager.ts
+│   ├── renderer/          # React UIs
+│   │   ├── topbar/        # Address bar, tabs, recorder
+│   │   ├── sidebar/       # Chat, recordings list
+│   │   └── lib/           # Shared utilities
+│   └── preload/           # IPC bridges
+│       ├── topbar.ts
+│       ├── sidebar.ts
+│       └── tab.ts
+├── tests/                 # Test scripts
+├── .env                   # Local config (not committed)
+├── CLAUDE.md              # Project principles
+├── progress.md            # Current status
+└── README.md              # This file
+```
+
+---
+
+## Key Features
+
+### 1. Action Recording
+- Captures clicks, typing, Enter key presses
+- Generates human-readable Playwright scripts
+- Stores as editable `.spec.ts` files
+
+### 2. Action Replay
+- Parses and executes Playwright commands
+- Runs in current browser tab (no separate window)
+- Handles form submission via Enter key
+
+### 3. Session Management
+- Save browser cookies/localStorage
+- Restore sessions to skip login flows
+- Per-domain session storage
+
+### 4. AI Chat
+- Sidebar chat interface
+- Multi-provider support (OpenAI, Anthropic, Google)
+- Context-aware responses
+
+---
+
+## Troubleshooting
+
+### Recording doesn't capture actions
+- Ensure recording indicator (red dot) is visible
+- Shadow DOM elements may not be capturable
+- Check DevTools console for errors
+
+### Replay fails to find elements
+- Website may have changed since recording
+- Manually edit `.spec.ts` file to fix selectors
+- Re-record if structure changed significantly
+
+### Enter key doesn't submit form
+- Custom form handlers may override default behavior
+- Edit script to call specific submit function
+- Add explicit `form.submit()` in generated code
+
+### Tests fail
+- Wait 5 seconds after `pnpm dev` before running tests
+- Check that browser window is fully loaded
+- Verify `.env` has valid API keys
+
+---
+
+## Documentation
+
+- **README.md** (this file) - Architecture, setup, testing
+- **CLAUDE.md** - Development principles and guidelines
+- **progress.md** - Current status and next priorities
+
+---
+
+## Contributing
+
+See `CLAUDE.md` for:
+- Code quality guidelines
+- Testing requirements
+- Git commit practices
+- Debugging strategies
