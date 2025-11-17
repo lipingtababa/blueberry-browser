@@ -35,11 +35,10 @@ export interface Recording {
   description?: string;
   createdAt: number;
   updatedAt: number;
-  actions: RecordedAction[];
+  actions: RecordedAction[]; // Used during recording; empty when loaded from Playwright script
   metadata?: {
     targetSite?: string;
-    duration?: number;
-    manualSteps?: number;
+    manualSteps?: number; // Parsed from Playwright script comments
   };
 }
 

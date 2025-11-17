@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkBreaks from 'remark-breaks'
-import { ArrowUp, Square, Sparkles, Plus } from 'lucide-react'
+import { ArrowUp, Plus } from 'lucide-react'
 import { useChat } from '../contexts/ChatContext'
 import { cn } from '@common/lib/utils'
 import { Button } from '@common/components/Button'
@@ -36,8 +36,12 @@ const useAutoScroll = (messages: Message[]) => {
 }
 
 // User Message Component - appears on the right
-const UserMessage: React.FC<{ content: string }> = ({ content }) => (
-    <div className="relative max-w-[85%] ml-auto animate-fade-in">
+const UserMessage: React.FC<{ content: string; messageId?: string }> = ({ content, messageId }) => (
+    <div
+        className="relative max-w-[85%] ml-auto animate-fade-in"
+        data-message-role="user"
+        data-message-id={messageId}
+    >
         <div className="bg-muted dark:bg-muted/50 rounded-3xl px-6 py-4">
             <div className="text-foreground" style={{ whiteSpace: 'pre-wrap' }}>
                 {content}
@@ -59,6 +63,7 @@ const StreamingText: React.FC<{ content: string }> = ({ content }) => {
             }, 10)
             return () => clearTimeout(timer)
         }
+        return undefined
     }, [content, currentIndex])
 
     return (
@@ -117,11 +122,16 @@ const Markdown: React.FC<{ content: string }> = ({ content }) => (
 )
 
 // Assistant Message Component - appears on the left
-const AssistantMessage: React.FC<{ content: string; isStreaming?: boolean }> = ({
+const AssistantMessage: React.FC<{ content: string; isStreaming?: boolean; messageId?: string }> = ({
     content,
-    isStreaming
+    isStreaming,
+    messageId
 }) => (
-    <div className="relative w-full animate-fade-in">
+    <div
+        className="relative w-full animate-fade-in"
+        data-message-role="assistant"
+        data-message-id={messageId}
+    >
         <div className="py-1">
             {isStreaming ? (
                 <StreamingText content={content} />
@@ -246,11 +256,12 @@ const ConversationTurnComponent: React.FC<{
     isLoading?: boolean
 }> = ({ turn, isLoading }) => (
     <div className="pt-12 flex flex-col gap-8">
-        {turn.user && <UserMessage content={turn.user.content} />}
+        {turn.user && <UserMessage content={turn.user.content} messageId={turn.user.id} />}
         {turn.assistant && (
             <AssistantMessage
                 content={turn.assistant.content}
                 isStreaming={turn.assistant.isStreaming}
+                messageId={turn.assistant.id}
             />
         )}
         {isLoading && (
@@ -263,8 +274,11 @@ const ConversationTurnComponent: React.FC<{
 
 // Main Chat Component
 export const Chat: React.FC = () => {
-    const { messages, isLoading, sendMessage, clearChat } = useChat()
+    const { messages, isLoading, sendMessage, clearChat, recordings, showRecordings, closeRecordingsList, replayRecording, deleteRecording } = useChat()
     const scrollRef = useAutoScroll(messages)
+
+    console.log('[CHAT COMPONENT] Rendering with messages:', messages.length, messages)
+    console.log('[CHAT COMPONENT] isLoading:', isLoading)
 
     // Group messages into conversation turns
     const conversationTurns: ConversationTurn[] = []
@@ -287,62 +301,118 @@ export const Chat: React.FC = () => {
     const showLoadingAfterLastTurn = isLoading &&
         messages[messages.length - 1]?.role === 'user'
 
+    console.log('[CHAT COMPONENT] Conversation turns:', conversationTurns.length, conversationTurns)
+    console.log('[CHAT COMPONENT] showLoadingAfterLastTurn:', showLoadingAfterLastTurn)
+
     return (
         <div className="flex flex-col h-full bg-background">
-            {/* Messages Area */}
+            {/* Messages Area or Recordings List */}
             <div className="flex-1 overflow-y-auto">
-                <div className="h-8 max-w-3xl mx-auto px-4">
-                    {/* New Chat Button - Floating */}
-                    {messages.length > 0 && (
-                        <Button
-                            onClick={clearChat}
-                            title="Start new chat"
-                            variant="ghost"
-                        >
-                            <Plus className="size-4" />
-                            New Chat
-                        </Button>
-                    )}
-                </div>
-
-                <div className="pb-4 relative max-w-3xl mx-auto px-4">
-
-                    {messages.length === 0 ? (
-                        // Empty State
-                        <div className="flex items-center justify-center h-full min-h-[400px]">
-                            <div className="text-center animate-fade-in max-w-md mx-auto gap-2 flex flex-col">
-                                <h3 className="text-2xl font-bold">🫐</h3>
-                                <p className="text-muted-foreground text-sm">
-                                    Press ⌘E to toggle the sidebar
-                                </p>
-                            </div>
+                {showRecordings ? (
+                    // Recordings List View
+                    <div className="h-full px-4 py-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-foreground">Saved Recordings</h2>
+                            <Button onClick={closeRecordingsList} variant="ghost">Close</Button>
                         </div>
-                    ) : (
-                        <>
 
-                            {/* Render conversation turns */}
-                            {conversationTurns.map((turn, index) => (
-                                <ConversationTurnComponent
-                                    key={`turn-${index}`}
-                                    turn={turn}
-                                    isLoading={
-                                        showLoadingAfterLastTurn &&
-                                        index === conversationTurns.length - 1
-                                    }
-                                />
-                            ))}
-                        </>
-                    )}
+                        {recordings.length === 0 ? (
+                            <div className="flex items-center justify-center h-64">
+                                <p className="text-muted-foreground">No recordings yet</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {recordings.map((recording) => (
+                                    <div
+                                        key={recording.id}
+                                        className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                                    >
+                                        <h3 className="font-semibold text-foreground mb-2">{recording.name}</h3>
+                                        {recording.description && (
+                                            <p className="text-sm text-muted-foreground mb-2">{recording.description}</p>
+                                        )}
+                                        <div className="text-xs text-muted-foreground mb-3">
+                                            {new Date(recording.createdAt).toLocaleDateString()}
+                                            {recording.metadata?.manualSteps ? ` • ${recording.metadata.manualSteps} manual steps` : ''}
+                                            {recording.metadata?.targetSite && ` • ${new URL(recording.metadata.targetSite).hostname}`}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => replayRecording(recording.id)}
+                                                size="sm"
+                                            >
+                                                Replay
+                                            </Button>
+                                            <Button
+                                                onClick={() => deleteRecording(recording.id)}
+                                                variant="destructive"
+                                                size="sm"
+                                            >
+                                                Delete
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    // Normal Chat View
+                    <>
+                        <div className="h-8 max-w-3xl mx-auto px-4">
+                            {/* New Chat Button - Floating */}
+                            {messages.length > 0 && (
+                                <Button
+                                    onClick={clearChat}
+                                    title="Start new chat"
+                                    variant="ghost"
+                                >
+                                    <Plus className="size-4" />
+                                    New Chat
+                                </Button>
+                            )}
+                        </div>
 
-                    {/* Scroll anchor */}
-                    <div ref={scrollRef} />
+                        <div className="pb-4 relative max-w-3xl mx-auto px-4">
+                            {messages.length === 0 ? (
+                                // Empty State
+                                <div className="flex items-center justify-center h-full min-h-[400px]">
+                                    <div className="text-center animate-fade-in max-w-md mx-auto gap-2 flex flex-col">
+                                        <h3 className="text-2xl font-bold">🫐</h3>
+                                        <p className="text-muted-foreground text-sm">
+                                            Press ⌘E to toggle the sidebar
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Render conversation turns */}
+                                    {conversationTurns.map((turn, index) => (
+                                        <ConversationTurnComponent
+                                            key={`turn-${index}`}
+                                            turn={turn}
+                                            isLoading={
+                                                showLoadingAfterLastTurn &&
+                                                index === conversationTurns.length - 1
+                                            }
+                                        />
+                                    ))}
+                                </>
+                            )}
+
+                            {/* Scroll anchor */}
+                            <div ref={scrollRef} />
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Input Area - only show for normal chat */}
+            {!showRecordings && (
+                <div className="p-4">
+                    <ChatInput onSend={sendMessage} disabled={isLoading} />
                 </div>
-            </div>
-
-            {/* Input Area */}
-            <div className="p-4">
-                <ChatInput onSend={sendMessage} disabled={isLoading} />
-            </div>
+            )}
         </div>
     )
 }

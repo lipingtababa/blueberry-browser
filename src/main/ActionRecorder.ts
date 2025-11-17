@@ -216,14 +216,7 @@ export class ActionRecorder {
     const recording = this.state.currentRecording;
     recording.updatedAt = Date.now();
 
-    // Calculate duration
-    if (recording.metadata && recording.actions.length > 0) {
-      recording.metadata.duration =
-        recording.actions[recording.actions.length - 1].timestamp -
-        recording.actions[0].timestamp;
-    }
-
-    // Save recording
+    // Save recording as Playwright script
     await this.saveRecording(recording);
 
     // Clean up recording script from tab
