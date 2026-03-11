@@ -183,7 +183,10 @@ export class EventManager {
       const recordings = this.recorder.getAllRecordings();
 
       // Send to sidebar to display
-      this.mainWindow.sidebar.view.webContents.send("show-recordings", recordings);
+      this.mainWindow.sidebar.view.webContents.send(
+        "show-recordings",
+        recordings,
+      );
 
       // Make sure sidebar is visible
       if (!this.mainWindow.sidebar.visible) {
@@ -258,35 +261,57 @@ export class EventManager {
     ipcMain.on("ping", () => console.log("pong"));
 
     // Renderer logging
-    ipcMain.on("renderer-log", (_, data: { level: string; message: string }) => {
-      if (data.level === 'error') {
-        console.error(data.message);
-      } else if (data.level === 'warn') {
-        console.warn(data.message);
-      } else {
-        console.log(data.message);
-      }
-    });
+    ipcMain.on(
+      "renderer-log",
+      (_, data: { level: string; message: string }) => {
+        if (data.level === "error") {
+          console.error(data.message);
+        } else if (data.level === "warn") {
+          console.warn(data.message);
+        } else {
+          console.log(data.message);
+        }
+      },
+    );
   }
 
   private handleRecorderEvents(): void {
     // Start recording
-    ipcMain.handle("recorder-start", async (_, name: string, description?: string) => {
-      try {
-        console.log("🔴 [RECORDER] Start recording requested:", { name, description });
-        const activeTab = this.mainWindow.activeTab;
-        console.log("🔴 [RECORDER] Active tab:", activeTab ? `Tab ${activeTab.id} - ${activeTab.url}` : "NONE");
-        if (!activeTab) {
-          throw new Error("No active tab");
+    ipcMain.handle(
+      "recorder-start",
+      async (_, name: string, description?: string) => {
+        try {
+          console.log("🔴 [RECORDER] Start recording requested:", {
+            name,
+            description,
+          });
+          const activeTab = this.mainWindow.activeTab;
+          console.log(
+            "🔴 [RECORDER] Active tab:",
+            activeTab ? `Tab ${activeTab.id} - ${activeTab.url}` : "NONE",
+          );
+          if (!activeTab) {
+            throw new Error("No active tab");
+          }
+          const recording = await this.recorder.startRecording(
+            activeTab,
+            name,
+            description,
+          );
+          console.log(
+            "🔴 [RECORDER] Recording started successfully:",
+            recording.id,
+          );
+          return { success: true, recording };
+        } catch (error) {
+          console.error("🔴 [RECORDER] Failed to start recording:", error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
         }
-        const recording = await this.recorder.startRecording(activeTab, name, description);
-        console.log("🔴 [RECORDER] Recording started successfully:", recording.id);
-        return { success: true, recording };
-      } catch (error) {
-        console.error("🔴 [RECORDER] Failed to start recording:", error);
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
-      }
-    });
+      },
+    );
 
     // Stop recording
     ipcMain.handle("recorder-stop", async () => {
@@ -294,7 +319,10 @@ export class EventManager {
         const recording = await this.recorder.stopRecording();
         return { success: true, recording };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -304,7 +332,10 @@ export class EventManager {
         this.recorder.pauseRecording();
         return { success: true };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -314,29 +345,50 @@ export class EventManager {
         this.recorder.resumeRecording();
         return { success: true };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
     // Add manual step
-    ipcMain.handle("recorder-add-manual-step", async (_, description: string) => {
-      try {
-        await this.recorder.addManualStep(description);
-        return { success: true };
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
-      }
-    });
+    ipcMain.handle(
+      "recorder-add-manual-step",
+      async (_, description: string) => {
+        try {
+          await this.recorder.addManualStep(description);
+          return { success: true };
+        } catch (error) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+    );
 
     // Record action (called from injected script)
-    ipcMain.handle("recorder-record-action", async (_, type, selector, value, isContentField, contentPlaceholder) => {
-      try {
-        await this.recorder.recordAction(type, selector, value, isContentField, contentPlaceholder);
-        return { success: true };
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
-      }
-    });
+    ipcMain.handle(
+      "recorder-record-action",
+      async (_, type, selector, value, isContentField, contentPlaceholder) => {
+        try {
+          await this.recorder.recordAction(
+            type,
+            selector,
+            value,
+            isContentField,
+            contentPlaceholder,
+          );
+          return { success: true };
+        } catch (error) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+    );
 
     // Get recorder state
     ipcMain.handle("recorder-get-state", () => {
@@ -349,7 +401,10 @@ export class EventManager {
         const recordings = this.recorder.getAllRecordings();
         return { success: true, recordings };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -359,7 +414,10 @@ export class EventManager {
         const recording = this.recorder.getRecording(id);
         return { success: true, recording };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -369,7 +427,10 @@ export class EventManager {
         await this.recorder.deleteRecording(id);
         return { success: true };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -382,14 +443,20 @@ export class EventManager {
         }
 
         // Set up status update callback
-        const statusCallback = (status: ReplayStatus) => {
-          this.mainWindow.topBar.view.webContents.send("replayer-status-update", status);
+        const statusCallback = (status: ReplayStatus): void => {
+          this.mainWindow.topBar.view.webContents.send(
+            "replayer-status-update",
+            status,
+          );
         };
 
         await this.replayer.startReplay(activeTab, options, statusCallback);
         return { success: true };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -399,7 +466,10 @@ export class EventManager {
         this.replayer.pause();
         return { success: true };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -409,7 +479,10 @@ export class EventManager {
         await this.replayer.resume();
         return { success: true };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -419,7 +492,10 @@ export class EventManager {
         this.replayer.stop();
         return { success: true };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -434,18 +510,30 @@ export class EventManager {
         await this.sessionManager.saveSession(domain, name);
         return { success: true };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
-    ipcMain.handle("session-restore", async (_, domain: string, name?: string) => {
-      try {
-        const restored = await this.sessionManager.restoreSession(domain, name);
-        return { success: true, restored };
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
-      }
-    });
+    ipcMain.handle(
+      "session-restore",
+      async (_, domain: string, name?: string) => {
+        try {
+          const restored = await this.sessionManager.restoreSession(
+            domain,
+            name,
+          );
+          return { success: true, restored };
+        } catch (error) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+    );
 
     ipcMain.handle("session-has-valid", (_, domain: string, name?: string) => {
       return this.sessionManager.hasValidSession(domain, name);
@@ -456,7 +544,10 @@ export class EventManager {
         this.sessionManager.deleteSession(domain, name);
         return { success: true };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -467,22 +558,35 @@ export class EventManager {
 
   private handleContentFormatterEvents(): void {
     // Format content
-    ipcMain.handle("format-content", async (_, htmlContent: string, options?: FormatOptions) => {
-      try {
-        const formatted = await this.contentFormatter.formatContent(htmlContent, options);
-        return { success: true, content: formatted };
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
-      }
-    });
+    ipcMain.handle(
+      "format-content",
+      async (_, htmlContent: string, options?: FormatOptions) => {
+        try {
+          const formatted = await this.contentFormatter.formatContent(
+            htmlContent,
+            options,
+          );
+          return { success: true, content: formatted };
+        } catch (error) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+    );
 
     // Format for WeChat
     ipcMain.handle("format-content-wechat", async (_, htmlContent: string) => {
       try {
-        const formatted = await this.contentFormatter.formatForWeChat(htmlContent);
+        const formatted =
+          await this.contentFormatter.formatForWeChat(htmlContent);
         return { success: true, content: formatted };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -492,7 +596,10 @@ export class EventManager {
         const title = await this.contentFormatter.generateTitle(content);
         return { success: true, title };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -502,7 +609,10 @@ export class EventManager {
         const optimized = this.contentFormatter.optimizeForWeChat(content);
         return { success: true, content: optimized };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
   }
@@ -512,7 +622,7 @@ export class EventManager {
     if (this.mainWindow.topBar.view.webContents !== sender) {
       this.mainWindow.topBar.view.webContents.send(
         "dark-mode-updated",
-        isDarkMode
+        isDarkMode,
       );
     }
 
@@ -520,7 +630,7 @@ export class EventManager {
     if (this.mainWindow.sidebar.view.webContents !== sender) {
       this.mainWindow.sidebar.view.webContents.send(
         "dark-mode-updated",
-        isDarkMode
+        isDarkMode,
       );
     }
 

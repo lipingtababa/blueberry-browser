@@ -12,166 +12,179 @@
  *   }
  */
 
-import * as fs from 'fs'
-import * as path from 'path'
-import type { Window } from '../../src/main/Window'
+import * as fs from "fs";
+import * as path from "path";
+import type { Window } from "../../src/main/Window";
 
 export interface TriggerData {
-  type: 'chat-message' | 'recorder-action'
-  message: string
-  messageId: string
-  timestamp: number
-  verifyUI?: boolean // If true, verify UI after sending message
+  type: "chat-message" | "recorder-action";
+  message: string;
+  messageId: string;
+  timestamp: number;
+  verifyUI?: boolean; // If true, verify UI after sending message
 }
 
 export class TestTriggerWatcher {
-  private window: Window
-  private triggerDir = '/tmp/blueberry/triggers'
-  private resultDir = '/tmp/blueberry/results'
-  private processedTriggers = new Set<string>()
-  private watchInterval: NodeJS.Timeout | null = null
-  private isRunning = false
+  private window: Window;
+  private triggerDir = "/tmp/blueberry/triggers";
+  private resultDir = "/tmp/blueberry/results";
+  private processedTriggers = new Set<string>();
+  private watchInterval: NodeJS.Timeout | null = null;
+  private isRunning = false;
 
   constructor(window: Window) {
-    this.window = window
-    this.ensureTriggerDir()
-    this.ensureResultDir()
+    this.window = window;
+    this.ensureTriggerDir();
+    this.ensureResultDir();
   }
 
-  private ensureResultDir() {
+  private ensureResultDir(): void {
     if (!fs.existsSync(this.resultDir)) {
-      fs.mkdirSync(this.resultDir, { recursive: true })
-      console.log(`📁 [TEST WATCHER] Created result directory: ${this.resultDir}`)
+      fs.mkdirSync(this.resultDir, { recursive: true });
+      console.log(
+        `📁 [TEST WATCHER] Created result directory: ${this.resultDir}`,
+      );
     }
   }
 
-  private ensureTriggerDir() {
+  private ensureTriggerDir(): void {
     if (!fs.existsSync(this.triggerDir)) {
-      fs.mkdirSync(this.triggerDir, { recursive: true })
-      console.log(`📁 [TEST WATCHER] Created trigger directory: ${this.triggerDir}`)
+      fs.mkdirSync(this.triggerDir, { recursive: true });
+      console.log(
+        `📁 [TEST WATCHER] Created trigger directory: ${this.triggerDir}`,
+      );
     }
   }
 
-  start() {
+  start(): void {
     if (this.isRunning) {
-      console.log('⚠️  [TEST WATCHER] Already running')
-      return
+      console.log("⚠️  [TEST WATCHER] Already running");
+      return;
     }
 
-    console.log('👀 [TEST WATCHER] Starting trigger watcher...')
-    console.log(`   Watching: ${this.triggerDir}`)
+    console.log("👀 [TEST WATCHER] Starting trigger watcher...");
+    console.log(`   Watching: ${this.triggerDir}`);
 
-    this.isRunning = true
+    this.isRunning = true;
 
     // Check for triggers every 500ms
     this.watchInterval = setInterval(() => {
-      this.checkForTriggers()
-    }, 500)
+      this.checkForTriggers();
+    }, 500);
 
-    console.log('✅ [TEST WATCHER] Trigger watcher started')
+    console.log("✅ [TEST WATCHER] Trigger watcher started");
   }
 
-  stop() {
+  stop(): void {
     if (!this.isRunning) {
-      return
+      return;
     }
 
-    console.log('🛑 [TEST WATCHER] Stopping trigger watcher...')
+    console.log("🛑 [TEST WATCHER] Stopping trigger watcher...");
 
     if (this.watchInterval) {
-      clearInterval(this.watchInterval)
-      this.watchInterval = null
+      clearInterval(this.watchInterval);
+      this.watchInterval = null;
     }
 
-    this.isRunning = false
-    console.log('✅ [TEST WATCHER] Trigger watcher stopped')
+    this.isRunning = false;
+    console.log("✅ [TEST WATCHER] Trigger watcher stopped");
   }
 
-  private checkForTriggers() {
+  private checkForTriggers(): void {
     try {
-      const files = fs.readdirSync(this.triggerDir)
+      const files = fs.readdirSync(this.triggerDir);
 
       // Filter for unprocessed trigger files
-      const triggerFiles = files.filter(file => {
-        return file.startsWith('chat-') &&
-               file.endsWith('.json') &&
-               !this.processedTriggers.has(file)
-      })
+      const triggerFiles = files.filter((file) => {
+        return (
+          file.startsWith("chat-") &&
+          file.endsWith(".json") &&
+          !this.processedTriggers.has(file)
+        );
+      });
 
       if (triggerFiles.length > 0) {
-        console.log(`📨 [TEST WATCHER] Found ${triggerFiles.length} new trigger(s)`)
+        console.log(
+          `📨 [TEST WATCHER] Found ${triggerFiles.length} new trigger(s)`,
+        );
       }
 
-      triggerFiles.forEach(file => {
-        this.processTriggerFile(file)
-      })
-
+      triggerFiles.forEach((file) => {
+        this.processTriggerFile(file);
+      });
     } catch (error) {
-      console.error('❌ [TEST WATCHER] Error checking triggers:', error)
+      console.error("❌ [TEST WATCHER] Error checking triggers:", error);
     }
   }
 
-  private processTriggerFile(filename: string) {
-    const filePath = path.join(this.triggerDir, filename)
+  private processTriggerFile(filename: string): void {
+    const filePath = path.join(this.triggerDir, filename);
 
     try {
-      console.log(`📝 [TEST WATCHER] Processing: ${filename}`)
+      console.log(`📝 [TEST WATCHER] Processing: ${filename}`);
 
       // Read trigger data
-      const content = fs.readFileSync(filePath, 'utf-8')
-      const trigger: TriggerData = JSON.parse(content)
+      const content = fs.readFileSync(filePath, "utf-8");
+      const trigger: TriggerData = JSON.parse(content);
 
       // Validate trigger
-      if (trigger.type !== 'chat-message') {
-        console.log(`  ⚠️  Unknown trigger type: ${trigger.type}`)
-        return
+      if (trigger.type !== "chat-message") {
+        console.log(`  ⚠️  Unknown trigger type: ${trigger.type}`);
+        return;
       }
 
       // Process the trigger
-      this.processChatMessage(trigger)
+      this.processChatMessage(trigger);
 
       // Mark as processed
-      this.processedTriggers.add(filename)
+      this.processedTriggers.add(filename);
 
       // Optionally delete the trigger file
-      fs.unlinkSync(filePath)
-      console.log(`  ✅ Trigger processed and deleted`)
-
+      fs.unlinkSync(filePath);
+      console.log(`  ✅ Trigger processed and deleted`);
     } catch (error) {
-      console.error(`  ❌ Error processing trigger ${filename}:`, error)
+      console.error(`  ❌ Error processing trigger ${filename}:`, error);
     }
   }
 
-  private async processChatMessage(trigger: TriggerData) {
+  private async processChatMessage(trigger: TriggerData): Promise<void> {
     try {
-      console.log(`💬 [TEST WATCHER] Sending chat message: "${trigger.message}"`)
+      console.log(
+        `💬 [TEST WATCHER] Sending chat message: "${trigger.message}"`,
+      );
 
       // Send the message through the LLM client
       await this.window.sidebar.client.sendChatMessage({
         message: trigger.message,
         messageId: trigger.messageId,
-      })
+      });
 
-      console.log(`  ✅ Message sent with ID: ${trigger.messageId}`)
+      console.log(`  ✅ Message sent with ID: ${trigger.messageId}`);
 
       // If UI verification requested, verify after a delay
       if (trigger.verifyUI) {
-        console.log(`  🔍 UI verification requested, waiting 2s for UI to update...`)
-        await this.sleep(2000)
-        await this.verifyMessageInUI(trigger.messageId)
+        console.log(
+          `  🔍 UI verification requested, waiting 2s for UI to update...`,
+        );
+        await this.sleep(2000);
+        await this.verifyMessageInUI(trigger.messageId);
       }
-
     } catch (error) {
-      console.error(`  ❌ Error sending message:`, error)
+      console.error(`  ❌ Error sending message:`, error);
       // Write error result
       if (trigger.verifyUI) {
-        this.writeVerificationResult(trigger.messageId, false, `Error: ${error}`)
+        this.writeVerificationResult(
+          trigger.messageId,
+          false,
+          `Error: ${error}`,
+        );
       }
     }
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private async verifyMessageInUI(messageId: string): Promise<void> {
@@ -203,56 +216,78 @@ export class TestTriggerWatcher {
             }
           };
         })()
-      `
+      `;
 
-      const result = await this.window.sidebar.view.webContents.executeJavaScript(script)
+      const result =
+        await this.window.sidebar.view.webContents.executeJavaScript(script);
 
       if (!result.exists) {
-        console.log(`  ❌ UI Verification FAILED: ${result.reason}`)
-        this.writeVerificationResult(messageId, false, result.reason)
-        return
+        console.log(`  ❌ UI Verification FAILED: ${result.reason}`);
+        this.writeVerificationResult(messageId, false, result.reason);
+        return;
       }
 
       if (!result.hasContent) {
-        console.log(`  ❌ UI Verification FAILED: Message has no content`)
-        this.writeVerificationResult(messageId, false, 'Message has no content')
-        return
+        console.log(`  ❌ UI Verification FAILED: Message has no content`);
+        this.writeVerificationResult(
+          messageId,
+          false,
+          "Message has no content",
+        );
+        return;
       }
 
-      console.log(`  ✅ UI Verification PASSED: Message found (role: ${result.role})`)
-      console.log(`     Total messages in UI: ${result.messageCount.total} (${result.messageCount.user} user, ${result.messageCount.assistant} assistant)`)
-      this.writeVerificationResult(messageId, true, 'Message found in UI', result.messageCount)
-
+      console.log(
+        `  ✅ UI Verification PASSED: Message found (role: ${result.role})`,
+      );
+      console.log(
+        `     Total messages in UI: ${result.messageCount.total} (${result.messageCount.user} user, ${result.messageCount.assistant} assistant)`,
+      );
+      this.writeVerificationResult(
+        messageId,
+        true,
+        "Message found in UI",
+        result.messageCount,
+      );
     } catch (error) {
-      console.error(`  ❌ UI Verification ERROR:`, error)
-      this.writeVerificationResult(messageId, false, `Verification error: ${error}`)
+      console.error(`  ❌ UI Verification ERROR:`, error);
+      this.writeVerificationResult(
+        messageId,
+        false,
+        `Verification error: ${error}`,
+      );
     }
   }
 
-  private writeVerificationResult(messageId: string, success: boolean, message: string, data?: any) {
-    const resultFile = path.join(this.resultDir, `${messageId}.json`)
+  private writeVerificationResult(
+    messageId: string,
+    success: boolean,
+    message: string,
+    data?: unknown,
+  ): void {
+    const resultFile = path.join(this.resultDir, `${messageId}.json`);
     const result = {
       messageId,
       success,
       message,
       data,
-      timestamp: Date.now()
-    }
+      timestamp: Date.now(),
+    };
 
-    fs.writeFileSync(resultFile, JSON.stringify(result, null, 2))
-    console.log(`  📝 Verification result written to: ${resultFile}`)
+    fs.writeFileSync(resultFile, JSON.stringify(result, null, 2));
+    console.log(`  📝 Verification result written to: ${resultFile}`);
   }
 
   // Utility method to manually trigger a test message
-  async triggerTestMessage(message: string) {
+  async triggerTestMessage(message: string): Promise<void> {
     const trigger: TriggerData = {
-      type: 'chat-message',
+      type: "chat-message",
       message,
       messageId: `manual-${Date.now()}`,
       timestamp: Date.now(),
-    }
+    };
 
-    console.log(`🚀 [TEST WATCHER] Manual trigger: "${message}"`)
-    await this.processChatMessage(trigger)
+    console.log(`🚀 [TEST WATCHER] Manual trigger: "${message}"`);
+    await this.processChatMessage(trigger);
   }
 }

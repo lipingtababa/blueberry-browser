@@ -29,24 +29,19 @@ const topBarAPI = {
     electronAPI.ipcRenderer.invoke("tab-run-js", tabId, code),
 
   // Sidebar
-  toggleSidebar: () =>
-    electronAPI.ipcRenderer.invoke("toggle-sidebar"),
+  toggleSidebar: () => electronAPI.ipcRenderer.invoke("toggle-sidebar"),
   showRecordingsList: () =>
     electronAPI.ipcRenderer.invoke("show-recordings-list"),
 
   // Recorder
   recorderStart: (name: string, description?: string) =>
     electronAPI.ipcRenderer.invoke("recorder-start", name, description),
-  recorderStop: () =>
-    electronAPI.ipcRenderer.invoke("recorder-stop"),
-  recorderPause: () =>
-    electronAPI.ipcRenderer.invoke("recorder-pause"),
-  recorderResume: () =>
-    electronAPI.ipcRenderer.invoke("recorder-resume"),
+  recorderStop: () => electronAPI.ipcRenderer.invoke("recorder-stop"),
+  recorderPause: () => electronAPI.ipcRenderer.invoke("recorder-pause"),
+  recorderResume: () => electronAPI.ipcRenderer.invoke("recorder-resume"),
   recorderAddManualStep: (description: string) =>
     electronAPI.ipcRenderer.invoke("recorder-add-manual-step", description),
-  recorderGetState: () =>
-    electronAPI.ipcRenderer.invoke("recorder-get-state"),
+  recorderGetState: () => electronAPI.ipcRenderer.invoke("recorder-get-state"),
   recorderGetRecordings: () =>
     electronAPI.ipcRenderer.invoke("recorder-get-recordings"),
   recorderGetRecording: (id: string) =>
@@ -55,14 +50,11 @@ const topBarAPI = {
     electronAPI.ipcRenderer.invoke("recorder-delete-recording", id),
 
   // Replayer
-  replayerStart: (options: any) =>
+  replayerStart: (options: unknown) =>
     electronAPI.ipcRenderer.invoke("replayer-start", options),
-  replayerPause: () =>
-    electronAPI.ipcRenderer.invoke("replayer-pause"),
-  replayerResume: () =>
-    electronAPI.ipcRenderer.invoke("replayer-resume"),
-  replayerStop: () =>
-    electronAPI.ipcRenderer.invoke("replayer-stop"),
+  replayerPause: () => electronAPI.ipcRenderer.invoke("replayer-pause"),
+  replayerResume: () => electronAPI.ipcRenderer.invoke("replayer-resume"),
+  replayerStop: () => electronAPI.ipcRenderer.invoke("replayer-stop"),
   replayerGetStatus: () =>
     electronAPI.ipcRenderer.invoke("replayer-get-status"),
 
@@ -75,8 +67,7 @@ const topBarAPI = {
     electronAPI.ipcRenderer.invoke("session-has-valid", domain, name),
   sessionDelete: (domain: string, name?: string) =>
     electronAPI.ipcRenderer.invoke("session-delete", domain, name),
-  sessionList: () =>
-    electronAPI.ipcRenderer.invoke("session-list"),
+  sessionList: () => electronAPI.ipcRenderer.invoke("session-list"),
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -95,4 +86,3 @@ if (process.contextIsolated) {
   // @ts-ignore (define in dts)
   window.topBarAPI = topBarAPI;
 }
-

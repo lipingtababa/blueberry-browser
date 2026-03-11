@@ -28,15 +28,15 @@ export class TopBar {
       // In development, load through Vite dev server
       const topbarUrl = new URL(
         "/topbar/",
-        process.env["ELECTRON_RENDERER_URL"]
+        process.env["ELECTRON_RENDERER_URL"],
       );
       webContentsView.webContents.loadURL(topbarUrl.toString());
 
       // Open DevTools in development mode
-      webContentsView.webContents.openDevTools({ mode: 'detach' });
+      webContentsView.webContents.openDevTools({ mode: "detach" });
     } else {
       webContentsView.webContents.loadFile(
-        join(__dirname, "../renderer/topbar/index.html")
+        join(__dirname, "../renderer/topbar/index.html"),
       );
     }
 

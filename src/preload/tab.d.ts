@@ -1,13 +1,21 @@
 import { ElectronAPI } from "@electron-toolkit/preload";
 
+interface ElementSelector {
+  css?: string;
+  xpath?: string;
+  text?: string;
+  id?: string;
+  name?: string;
+}
+
 interface TabAPI {
   // Recorder functionality
   recordAction: (
     type: string,
-    selector: any,
+    selector: ElementSelector,
     value?: string,
     isContentField?: boolean,
-    contentPlaceholder?: string
+    contentPlaceholder?: string,
   ) => Promise<{ success: boolean; error?: string }>;
 }
 

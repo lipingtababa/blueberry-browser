@@ -18,14 +18,14 @@ const logStream = fs.createWriteStream(logFile, { flags: "a" });
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 
-console.log = (...args: any[]) => {
+console.log = (...args: unknown[]) => {
   const timestamp = new Date().toISOString();
   const message = `[${timestamp}] ${args.join(" ")}\n`;
   logStream.write(message);
   originalConsoleLog(...args);
 };
 
-console.error = (...args: any[]) => {
+console.error = (...args: unknown[]) => {
   const timestamp = new Date().toISOString();
   const message = `[${timestamp}] ERROR: ${args.join(" ")}\n`;
   logStream.write(message);
@@ -52,15 +52,17 @@ app.whenReady().then(() => {
   mainWindow = createWindow();
 
   // Enable automated testing if requested
-  if (process.env.ENABLE_TEST_TRIGGERS === 'true') {
-    console.log('🧪 Automated testing enabled');
+  if (process.env.ENABLE_TEST_TRIGGERS === "true") {
+    console.log("🧪 Automated testing enabled");
     testWatcher = new TestTriggerWatcher(mainWindow);
     testWatcher.start();
 
     // Send a test message after 5 seconds to verify everything works
     setTimeout(() => {
-      console.log('🚀 Sending startup test message...');
-      testWatcher?.triggerTestMessage('Automated test: Application started successfully');
+      console.log("🚀 Sending startup test message...");
+      testWatcher?.triggerTestMessage(
+        "Automated test: Application started successfully",
+      );
     }, 5000);
   }
 

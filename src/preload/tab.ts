@@ -6,10 +6,10 @@ const tabAPI = {
   // Recorder - called by injected recorder script in web pages
   recordAction: (
     type: string,
-    selector: any,
+    selector: Record<string, string | undefined>,
     value?: string,
     isContentField?: boolean,
-    contentPlaceholder?: string
+    contentPlaceholder?: string,
   ) =>
     electronAPI.ipcRenderer.invoke(
       "recorder-record-action",
@@ -17,7 +17,7 @@ const tabAPI = {
       selector,
       value,
       isContentField,
-      contentPlaceholder
+      contentPlaceholder,
     ),
 };
 

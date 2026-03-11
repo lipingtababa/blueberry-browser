@@ -45,7 +45,7 @@ export class ActionRecorder {
         .map((file) => {
           const content = fs.readFileSync(
             path.join(this.recordingsDir, file),
-            "utf-8"
+            "utf-8",
           );
           return this.parsePlaywrightScript(file, content);
         })
@@ -98,8 +98,17 @@ export class ActionRecorder {
     };
   }
 
-  public async startRecording(tab: Tab, name: string, description?: string): Promise<Recording> {
-    console.log("📹 [RECORDER] startRecording called with:", { name, description, tabUrl: tab?.url, tabId: tab?.id });
+  public async startRecording(
+    tab: Tab,
+    name: string,
+    description?: string,
+  ): Promise<Recording> {
+    console.log("📹 [RECORDER] startRecording called with:", {
+      name,
+      description,
+      tabUrl: tab?.url,
+      tabId: tab?.id,
+    });
 
     if (this.state.isRecording) {
       console.error("📹 [RECORDER] Error: Already recording");
@@ -162,7 +171,11 @@ export class ActionRecorder {
   }
 
   public async addManualStep(description: string): Promise<void> {
-    if (!this.state.isRecording || !this.state.currentRecording || !this.currentTab) {
+    if (
+      !this.state.isRecording ||
+      !this.state.currentRecording ||
+      !this.currentTab
+    ) {
       throw new Error("Not recording");
     }
 
@@ -188,9 +201,14 @@ export class ActionRecorder {
     selector: ElementSelector,
     value?: string,
     isContentField?: boolean,
-    contentPlaceholder?: string
+    contentPlaceholder?: string,
   ): Promise<void> {
-    if (!this.state.isRecording || this.state.isPaused || !this.state.currentRecording || !this.currentTab) {
+    if (
+      !this.state.isRecording ||
+      this.state.isPaused ||
+      !this.state.currentRecording ||
+      !this.currentTab
+    ) {
       return;
     }
 
@@ -246,7 +264,7 @@ export class ActionRecorder {
         createdAt: recording.createdAt,
         targetSite: recording.metadata?.targetSite,
       },
-      recording.actions
+      recording.actions,
     );
 
     // Save as .spec.ts file
