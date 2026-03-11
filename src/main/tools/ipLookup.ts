@@ -60,11 +60,11 @@ export async function fetchPublicIp(): Promise<IpLookupResult> {
     }
 
     // ip-api.com returns the IP in the "query" field
-    if (!("ip" in record) || typeof record.ip !== "string") {
+    if (!("query" in record) || typeof record.query !== "string") {
       throw new Error("IP lookup returned unexpected response shape");
     }
 
-    const ip = record.ip as string;
+    const ip = record.query as string;
 
     if (!IPV4_REGEX.test(ip)) {
       throw new Error("IP lookup returned an invalid IPv4 address");
