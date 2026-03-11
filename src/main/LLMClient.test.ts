@@ -26,7 +26,9 @@ import { LLMClient } from "./LLMClient";
 /**
  * Creates a minimal WebContents mock that records IPC calls.
  */
-function createMockWebContents() {
+function createMockWebContents(): WebContents & {
+  _sent: Array<{ channel: string; args: unknown[] }>;
+} {
   const sent: Array<{ channel: string; args: unknown[] }> = [];
   const mock = {
     send: vi.fn((channel: string, ...args: unknown[]) => {
@@ -75,7 +77,7 @@ function textOnlyDoStream(text: string) {
  */
 function injectModel(
   client: LLMClient,
-  mockModel: MockLanguageModelV2 | null
+  mockModel: MockLanguageModelV2 | null,
 ): void {
   (client as unknown as Record<string, unknown>)["model"] = mockModel;
 }
@@ -109,7 +111,7 @@ describe("LLMClient.sendChatMessage", () => {
 
     // Should send a "chat-response" event with a message about missing config
     const chatResponses = webContents._sent.filter(
-      (e) => e.channel === "chat-response"
+      (e) => e.channel === "chat-response",
     );
     expect(chatResponses.length).toBeGreaterThan(0);
 
@@ -206,7 +208,7 @@ describe("LLMClient.sendChatMessage", () => {
     });
 
     const chatResponses = webContents._sent.filter(
-      (e) => e.channel === "chat-response"
+      (e) => e.channel === "chat-response",
     );
     expect(chatResponses.length).toBeGreaterThan(0);
 
@@ -283,12 +285,12 @@ describe("LLMClient.sendChatMessage", () => {
       client.sendChatMessage({
         message: "What is my IP?",
         messageId: "msg-001",
-      })
+      }),
     ).resolves.toBeUndefined();
 
     // A chat-response must have been sent (no blank, no crash)
     const chatResponses = webContents._sent.filter(
-      (e) => e.channel === "chat-response"
+      (e) => e.channel === "chat-response",
     );
     expect(chatResponses.length).toBeGreaterThan(0);
 
@@ -319,23 +321,25 @@ describe("LLMClient.sendChatMessage", () => {
       client.sendChatMessage({
         message: "What is my IP?",
         messageId: "msg-001",
-      })
+      }),
     ).resolves.toBeUndefined();
 
     (mockModel as unknown as { doStream: unknown }).doStream = textOnlyDoStream(
-      "Your public IP is still 1.2.3.4."
+      "Your public IP is still 1.2.3.4.",
     );
 
     await expect(
       client.sendChatMessage({
         message: "What is my IP again?",
         messageId: "msg-002",
-      })
+      }),
     ).resolves.toBeUndefined();
 
     // Both messages should produce chat-response events
     const chatResponses = webContents._sent.filter(
-      (e) => e.channel === "chat-response" && (e.args[0] as { isComplete: boolean }).isComplete
+      (e) =>
+        e.channel === "chat-response" &&
+        (e.args[0] as { isComplete: boolean }).isComplete,
     );
     expect(chatResponses.length).toBeGreaterThanOrEqual(2);
   });

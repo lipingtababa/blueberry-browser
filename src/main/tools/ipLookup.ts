@@ -22,7 +22,7 @@ export async function fetchPublicIp(): Promise<{ ip: string }> {
 
     if (!response.ok) {
       throw new Error(
-        `IP lookup failed: ${response.status} ${response.statusText}`
+        `IP lookup failed: ${response.status} ${response.statusText}`,
       );
     }
 

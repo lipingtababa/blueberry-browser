@@ -22,7 +22,7 @@ describe("fetchPublicIp", () => {
   // Happy path
   test("returns { ip } for a valid IPv4 response", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
-      mockOkResponse({ ip: "1.2.3.4" })
+      mockOkResponse({ ip: "1.2.3.4" }),
     );
 
     const result = await fetchPublicIp();
@@ -36,7 +36,7 @@ describe("fetchPublicIp", () => {
       new Response("Service Unavailable", {
         status: 503,
         statusText: "Service Unavailable",
-      })
+      }),
     );
 
     await expect(fetchPublicIp()).rejects.toThrow("IP lookup failed: 503");
@@ -62,7 +62,8 @@ describe("fetchPublicIp", () => {
     vi.spyOn(global, "fetch").mockImplementation(
       (_url: RequestInfo | URL, options?: RequestInit) => {
         return new Promise((_resolve, _reject) => {
-          const signal = (options as RequestInit & { signal?: AbortSignal })?.signal;
+          const signal = (options as RequestInit & { signal?: AbortSignal })
+            ?.signal;
           if (!signal) {
             // If no signal is passed, the implementation won't be able to time out.
             // This is itself a test failure condition — but we can't fail here.
@@ -70,15 +71,19 @@ describe("fetchPublicIp", () => {
             return;
           }
           if (signal.aborted) {
-            _reject(new DOMException("The operation was aborted.", "AbortError"));
+            _reject(
+              new DOMException("The operation was aborted.", "AbortError"),
+            );
             return;
           }
           signal.addEventListener("abort", () => {
-            _reject(new DOMException("The operation was aborted.", "AbortError"));
+            _reject(
+              new DOMException("The operation was aborted.", "AbortError"),
+            );
           });
           // Hangs until signal fires
         });
-      }
+      },
     );
 
     try {
@@ -99,7 +104,7 @@ describe("fetchPublicIp", () => {
     vi.spyOn(global, "fetch").mockResolvedValue(mockOkResponse({}));
 
     await expect(fetchPublicIp()).rejects.toThrow(
-      "IP lookup returned unexpected response shape"
+      "IP lookup returned unexpected response shape",
     );
   });
 
@@ -108,36 +113,36 @@ describe("fetchPublicIp", () => {
     vi.spyOn(global, "fetch").mockResolvedValue(mockOkResponse({ ip: 42 }));
 
     await expect(fetchPublicIp()).rejects.toThrow(
-      "IP lookup returned unexpected response shape"
+      "IP lookup returned unexpected response shape",
     );
   });
 
   // Invalid IPv4 — garbage string
   test("throws when response ip is not a valid IPv4 address", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
-      mockOkResponse({ ip: "not-an-ip" })
+      mockOkResponse({ ip: "not-an-ip" }),
     );
 
     await expect(fetchPublicIp()).rejects.toThrow(
-      "IP lookup returned an invalid IPv4 address"
+      "IP lookup returned an invalid IPv4 address",
     );
   });
 
   // Invalid IPv4 — IPv6 address
   test("throws when response ip is an IPv6 address (not IPv4)", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
-      mockOkResponse({ ip: "2001:db8::1" })
+      mockOkResponse({ ip: "2001:db8::1" }),
     );
 
     await expect(fetchPublicIp()).rejects.toThrow(
-      "IP lookup returned an invalid IPv4 address"
+      "IP lookup returned an invalid IPv4 address",
     );
   });
 
   // Redirect followed — fetch is called with redirect: "error" so redirects should throw
   test("throws when fetch follows a redirect (redirect: error)", async () => {
     vi.spyOn(global, "fetch").mockRejectedValue(
-      new TypeError("Failed to fetch: redirect not allowed")
+      new TypeError("Failed to fetch: redirect not allowed"),
     );
 
     await expect(fetchPublicIp()).rejects.toThrow(/redirect|fetch/i);

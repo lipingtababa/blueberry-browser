@@ -1,5 +1,12 @@
 import { WebContents } from "electron";
-import { streamText, tool, jsonSchema, stepCountIs, type LanguageModel, type CoreMessage } from "ai";
+import {
+  streamText,
+  tool,
+  jsonSchema,
+  stepCountIs,
+  type LanguageModel,
+  type CoreMessage,
+} from "ai";
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
@@ -98,15 +105,18 @@ export class LLMClient {
   private logInitializationStatus(): void {
     if (this.model) {
       console.log(
-        `✅ LLM Client initialized with ${this.provider} provider using model: ${this.modelName}`
+        `✅ LLM Client initialized with ${this.provider} provider using model: ${this.modelName}`,
       );
     } else {
       const keyName =
-        this.provider === "anthropic" ? "ANTHROPIC_API_KEY" :
-        this.provider === "google" ? "GOOGLE_GENERATIVE_AI_API_KEY" : "OPENAI_API_KEY";
+        this.provider === "anthropic"
+          ? "ANTHROPIC_API_KEY"
+          : this.provider === "google"
+            ? "GOOGLE_GENERATIVE_AI_API_KEY"
+            : "OPENAI_API_KEY";
       console.error(
         `❌ LLM Client initialization failed: ${keyName} not found in environment variables.\n` +
-          `Please add your API key to the .env file in the project root.`
+          `Please add your API key to the .env file in the project root.`,
       );
     }
   }
@@ -124,7 +134,7 @@ export class LLMClient {
       if (!this.model) {
         this.sendErrorMessage(
           request.messageId,
-          "LLM service is not configured. Please add your API key to the .env file."
+          "LLM service is not configured. Please add your API key to the .env file.",
         );
         return;
       }
@@ -147,7 +157,8 @@ export class LLMClient {
       }
 
       if (!fullText) {
-        fullText = "Sorry, I was unable to process your request. Please try again.";
+        fullText =
+          "Sorry, I was unable to process your request. Please try again.";
       }
 
       this.sendStreamChunk(request.messageId, {
@@ -172,11 +183,16 @@ export class LLMClient {
    */
   async getCompletion(prompt: string): Promise<string> {
     if (!this.model) {
-      throw new Error("LLM service is not configured. Please add your API key to the .env file.");
+      throw new Error(
+        "LLM service is not configured. Please add your API key to the .env file.",
+      );
     }
 
     try {
-      console.log("🔵 [DEBUG getCompletion] Calling streamText with model:", this.modelName);
+      console.log(
+        "🔵 [DEBUG getCompletion] Calling streamText with model:",
+        this.modelName,
+      );
       const result = await streamText({
         model: this.model,
         messages: [
@@ -197,10 +213,13 @@ export class LLMClient {
         console.log("🔵 [DEBUG getCompletion] Response metadata:", {
           id: response.id,
           model: response.modelId,
-          timestamp: response.timestamp
+          timestamp: response.timestamp,
         });
       } catch (e) {
-        console.error("🔴 [DEBUG getCompletion] Error getting response metadata:", e);
+        console.error(
+          "🔴 [DEBUG getCompletion] Error getting response metadata:",
+          e,
+        );
       }
 
       let fullText = "";
@@ -208,14 +227,27 @@ export class LLMClient {
       for await (const chunk of result.textStream) {
         chunkCount++;
         fullText += chunk;
-        console.log("🔵 [DEBUG getCompletion] Chunk", chunkCount, "length:", chunk.length);
+        console.log(
+          "🔵 [DEBUG getCompletion] Chunk",
+          chunkCount,
+          "length:",
+          chunk.length,
+        );
       }
 
-      console.log("🔵 [DEBUG getCompletion] Total chunks:", chunkCount, "Total length:", fullText.length);
+      console.log(
+        "🔵 [DEBUG getCompletion] Total chunks:",
+        chunkCount,
+        "Total length:",
+        fullText.length,
+      );
       return fullText;
     } catch (error) {
       console.error("🔴 [DEBUG getCompletion] Error:", error);
-      console.error("🔴 [DEBUG getCompletion] Error stack:", error instanceof Error ? error.stack : 'No stack');
+      console.error(
+        "🔴 [DEBUG getCompletion] Error stack:",
+        error instanceof Error ? error.stack : "No stack",
+      );
       throw new Error(this.getErrorMessage(error));
     }
   }
@@ -230,10 +262,13 @@ export class LLMClient {
   }
 
   private sendMessagesToRenderer(): void {
-    console.log("📤 [LLM] Sending chat-messages-updated event with", this.messages.length, "messages");
+    console.log(
+      "📤 [LLM] Sending chat-messages-updated event with",
+      this.messages.length,
+      "messages",
+    );
     this.webContents.send("chat-messages-updated", this.messages);
   }
-
 
   private handleStreamError(error: unknown, messageId: string): void {
     console.error("Error streaming from LLM:", error);
