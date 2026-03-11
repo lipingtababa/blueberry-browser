@@ -13,6 +13,7 @@ import { google } from "@ai-sdk/google";
 import * as dotenv from "dotenv";
 import { join } from "path";
 import { fetchPublicIp } from "./tools/ipLookup";
+import { reportError, type ErrorReporterConfig } from "./tools/errorReporter";
 
 // Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../.env") });
@@ -52,6 +53,12 @@ export class LLMClient {
   private readonly modelName: string;
   private readonly model: LanguageModel | null;
   private messages: CoreMessage[] = [];
+  private readonly errorReporterConfig: ErrorReporterConfig = {
+    endpoint:
+      process.env.ERROR_REPORT_ENDPOINT ?? "http://localhost:4242/errors",
+    timeoutMs: 1500,
+    enabled: process.env.ERROR_REPORTING !== "false",
+  };
 
   constructor(webContents: WebContents) {
     this.webContents = webContents;
@@ -286,6 +293,7 @@ export class LLMClient {
   }
 
   private handleStreamError(error: unknown, messageId: string): void {
+    void reportError(error, {}, this.errorReporterConfig);
     console.error("Error streaming from LLM:", error);
 
     const errorMessage = this.getErrorMessage(error);

@@ -1,4 +1,12 @@
 // ip-api.com works from Node.js/Electron main process (HTTP is fine here — no browser mixed-content restriction)
+import { reportError, type ErrorReporterConfig } from "./errorReporter";
+
+const errorReporterConfig: ErrorReporterConfig = {
+  endpoint: process.env.ERROR_REPORT_ENDPOINT ?? "http://localhost:4242/errors",
+  timeoutMs: 1500,
+  enabled: process.env.ERROR_REPORTING !== "false",
+};
+
 const IP_LOOKUP_URL = "http://ip-api.com/json";
 const TIMEOUT_MS = 2500;
 const IPV4_REGEX =
@@ -75,8 +83,19 @@ export async function fetchPublicIp(): Promise<IpLookupResult> {
     };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("IP lookup timed out");
+      const timeoutError = new Error("IP lookup timed out");
+      void reportError(
+        timeoutError,
+        { toolName: "getMyIpAddress" },
+        errorReporterConfig,
+      );
+      throw timeoutError;
     }
+    void reportError(
+      error,
+      { toolName: "getMyIpAddress" },
+      errorReporterConfig,
+    );
     throw error;
   } finally {
     clearTimeout(timeoutId);
