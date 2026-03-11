@@ -10,6 +10,16 @@ function mockOkResponse(body: unknown): Response {
   });
 }
 
+// Full ipapi.co response shape
+const FULL_IPAPI_RESPONSE = {
+  ip: "203.0.113.42",
+  city: "San Francisco",
+  region: "California",
+  country_name: "United States",
+  latitude: 37.7749,
+  longitude: -122.4194,
+};
+
 describe("fetchPublicIp", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -19,15 +29,58 @@ describe("fetchPublicIp", () => {
     vi.restoreAllMocks();
   });
 
-  // Happy path
-  test("returns { ip } for a valid IPv4 response", async () => {
+  // Happy path — full geo fields present
+  test("returns full IpLookupResult for valid response with all geo fields", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      mockOkResponse(FULL_IPAPI_RESPONSE),
+    );
+
+    const result = await fetchPublicIp();
+
+    expect(result).toEqual({
+      ip: "203.0.113.42",
+      city: "San Francisco",
+      region: "California",
+      country: "United States",
+      latitude: 37.7749,
+      longitude: -122.4194,
+    });
+  });
+
+  // Geo fields entirely absent — all return null
+  test("returns null geo fields when API response omits them entirely", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       mockOkResponse({ ip: "1.2.3.4" }),
     );
 
     const result = await fetchPublicIp();
 
-    expect(result).toEqual({ ip: "1.2.3.4" });
+    expect(result).toEqual({
+      ip: "1.2.3.4",
+      city: null,
+      region: null,
+      country: null,
+      latitude: null,
+      longitude: null,
+    });
+  });
+
+  // Geo fields partially present — present ones returned, missing ones null
+  test("returns null for geo fields that are partially missing", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      mockOkResponse({ ip: "1.2.3.4", city: "Berlin" }),
+    );
+
+    const result = await fetchPublicIp();
+
+    expect(result).toEqual({
+      ip: "1.2.3.4",
+      city: "Berlin",
+      region: null,
+      country: null,
+      latitude: null,
+      longitude: null,
+    });
   });
 
   // Non-OK HTTP status
@@ -51,11 +104,6 @@ describe("fetchPublicIp", () => {
 
   // Timeout — verifies that the implementation passes an AbortSignal to fetch
   // and that the signal fires after 2500ms, rejecting with a timeout error.
-  //
-  // Strategy: use fake timers. Mock fetch to hang until its abort signal fires.
-  // Advance fake timers by 3000ms. The implementation's AbortController must
-  // have fired by then, causing fetch to reject with an AbortError. The
-  // implementation must then throw an error matching /timed out|aborted/i.
   test("throws when the request times out", async () => {
     vi.useFakeTimers();
 
@@ -65,9 +113,6 @@ describe("fetchPublicIp", () => {
           const signal = (options as RequestInit & { signal?: AbortSignal })
             ?.signal;
           if (!signal) {
-            // If no signal is passed, the implementation won't be able to time out.
-            // This is itself a test failure condition — but we can't fail here.
-            // Just hang forever (the outer test timeout will catch it).
             return;
           }
           if (signal.aborted) {
@@ -81,23 +126,19 @@ describe("fetchPublicIp", () => {
               new DOMException("The operation was aborted.", "AbortError"),
             );
           });
-          // Hangs until signal fires
         });
       },
     );
 
     try {
       const promise = fetchPublicIp();
-      // Attach rejection handler immediately before advancing timers,
-      // so the rejection is handled before it can become unhandled.
       const assertion = expect(promise).rejects.toThrow(/timed out|aborted/i);
-      // Advance past the implementation's timeout (expected: 2500ms)
       await vi.advanceTimersByTimeAsync(3000);
       await assertion;
     } finally {
       vi.useRealTimers();
     }
-  }, 5000); // 5s wall-clock limit; fake timers advance instantly once implementation uses AbortController
+  }, 5000);
 
   // Bad shape — missing ip field
   test("throws when response body is missing the ip field", async () => {

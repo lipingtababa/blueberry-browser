@@ -40,7 +40,7 @@ const DEFAULT_TEMPERATURE = 0.7;
 const chatTools = {
   getMyIpAddress: tool({
     description:
-      "Look up the user's public IP address. Use when the user asks about their IP.",
+      "Look up the user's public IP address and approximate geolocation (city, region, country, coordinates). Use when the user asks about their IP or location.",
     inputSchema: jsonSchema({ type: "object", properties: {} }),
     execute: fetchPublicIp,
   }),
@@ -157,8 +157,23 @@ export class LLMClient {
       }
 
       if (!fullText) {
-        fullText =
-          "Sorry, I was unable to process your request. Please try again.";
+        // Check if a tool error caused the empty response
+        type ToolErrorPart = {
+          type: "tool-error";
+          toolName: string;
+          error: unknown;
+        };
+        const steps = await result.steps;
+        const toolErrorPart = steps
+          .flatMap((s) => s.content as ToolErrorPart[])
+          .find((c) => c.type === "tool-error");
+        if (toolErrorPart) {
+          const err = toolErrorPart.error;
+          const detail = err instanceof Error ? err.message : String(err);
+          fullText = `Tool error (${toolErrorPart.toolName}): ${detail}`;
+        } else {
+          fullText = "No response was returned. Please try again.";
+        }
       }
 
       this.sendStreamChunk(request.messageId, {
