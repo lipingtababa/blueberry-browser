@@ -53,14 +53,12 @@ async function post(event) {
 
   for (const { label, count, event } of ERRORS) {
     process.stdout.write(`${label} (${count}x) ... `);
-    for (let i = 0; i < count; i++) {
-      await post(event);
-    }
+    await Promise.all(Array(count).fill(null).map(() => post(event)));
     console.log('done');
   }
 
   // Summary
-  const res = await fetch(ENDPOINT.replace('/errors', '/errors'));
+  const res = await fetch(ENDPOINT);
   const buckets = await res.json();
   console.log('\nBuckets:');
   for (const b of buckets) {
