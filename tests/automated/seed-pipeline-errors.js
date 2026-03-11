@@ -3,6 +3,7 @@
  *
  * High count: tool.ip-lookup.invalid-shape  (25 occurrences)
  * Low count:  tool.ip-lookup.timeout         (3 occurrences)
+ * Rare (1x):  tool.ip-lookup.http-error, tool.ip-lookup.invalid-ip, llm.stream.unknown
  *
  * Usage: node tests/automated/seed-pipeline-errors.js [endpoint]
  * Default endpoint: http://localhost:4242/errors
@@ -32,6 +33,45 @@ const ERRORS = [
       errorType: 'Error',
       message: 'IP lookup timed out',
       signature: 'IP lookup timed out',
+      stack: null,
+      appVersion: '1.0.0',
+      platform: 'darwin',
+    },
+  },
+  {
+    label: 'tool.ip-lookup.http-error',
+    count: 1,
+    event: {
+      toolName: 'getMyIpAddress',
+      errorType: 'Error',
+      message: 'IP lookup failed: 503 Service Unavailable',
+      signature: 'IP lookup failed: {status} Service Unavailable',
+      stack: null,
+      appVersion: '1.0.0',
+      platform: 'darwin',
+    },
+  },
+  {
+    label: 'tool.ip-lookup.invalid-ip',
+    count: 1,
+    event: {
+      toolName: 'getMyIpAddress',
+      errorType: 'Error',
+      message: 'IP lookup returned an invalid IPv4 address',
+      signature: 'IP lookup returned an invalid IPv4 address',
+      stack: null,
+      appVersion: '1.0.0',
+      platform: 'darwin',
+    },
+  },
+  {
+    label: 'llm.stream.unknown (rate limit)',
+    count: 1,
+    event: {
+      toolName: null,
+      errorType: 'Error',
+      message: '429 Too Many Requests: rate limit exceeded',
+      signature: '{status} Too Many Requests: rate limit exceeded',
       stack: null,
       appVersion: '1.0.0',
       platform: 'darwin',
