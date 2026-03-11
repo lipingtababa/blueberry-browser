@@ -27,7 +27,10 @@ export class SessionManager {
   /**
    * Save the current session cookies for a specific domain
    */
-  public async saveSession(domain: string, sessionName?: string): Promise<void> {
+  public async saveSession(
+    domain: string,
+    sessionName?: string,
+  ): Promise<void> {
     const cookies = await session.defaultSession.cookies.get({ domain });
 
     const savedSession: SavedSession = {
@@ -54,7 +57,10 @@ export class SessionManager {
   /**
    * Restore a saved session for a specific domain
    */
-  public async restoreSession(domain: string, sessionName?: string): Promise<boolean> {
+  public async restoreSession(
+    domain: string,
+    sessionName?: string,
+  ): Promise<boolean> {
     const filename = sessionName || this.sanitizeDomain(domain);
     const filePath = path.join(this.sessionsDir, `${filename}.json`);
 
@@ -85,17 +91,27 @@ export class SessionManager {
             secure: cookie.secure,
             httpOnly: cookie.httpOnly,
             expirationDate: cookie.expirationDate,
-            sameSite: cookie.sameSite as "unspecified" | "no_restriction" | "lax" | "strict",
+            sameSite: cookie.sameSite as
+              | "unspecified"
+              | "no_restriction"
+              | "lax"
+              | "strict",
           });
         } catch (error) {
-          console.error(`[SessionManager] Error restoring cookie ${cookie.name}:`, error);
+          console.error(
+            `[SessionManager] Error restoring cookie ${cookie.name}:`,
+            error,
+          );
         }
       }
 
       console.log(`[SessionManager] Restored session for ${domain}`);
       return true;
     } catch (error) {
-      console.error(`[SessionManager] Error restoring session for ${domain}:`, error);
+      console.error(
+        `[SessionManager] Error restoring session for ${domain}:`,
+        error,
+      );
       return false;
     }
   }
@@ -121,7 +137,7 @@ export class SessionManager {
       }
 
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -147,7 +163,7 @@ export class SessionManager {
     for (const cookie of cookies) {
       await session.defaultSession.cookies.remove(
         `https://${cookie.domain}`,
-        cookie.name
+        cookie.name,
       );
     }
     console.log(`[SessionManager] Cleared session for ${domain}`);
@@ -156,7 +172,12 @@ export class SessionManager {
   /**
    * List all saved sessions
    */
-  public listSessions(): Array<{ name: string; domain: string; savedAt: number; expiresAt?: number }> {
+  public listSessions(): Array<{
+    name: string;
+    domain: string;
+    savedAt: number;
+    expiresAt?: number;
+  }> {
     try {
       const files = fs.readdirSync(this.sessionsDir);
       return files
@@ -164,7 +185,7 @@ export class SessionManager {
         .map((file) => {
           const content = fs.readFileSync(
             path.join(this.sessionsDir, file),
-            "utf-8"
+            "utf-8",
           );
           const savedSession: SavedSession = JSON.parse(content);
           return {

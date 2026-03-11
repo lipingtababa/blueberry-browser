@@ -35,7 +35,7 @@ export class ContentFormatter {
    */
   public async formatContent(
     htmlContent: string,
-    options: FormatOptions = {}
+    options: FormatOptions = {},
   ): Promise<FormattedContent> {
     const {
       targetPlatform = "wechat",
@@ -48,7 +48,12 @@ export class ContentFormatter {
     const { text, images } = this.extractContentFromHTML(htmlContent);
 
     // Build AI prompt for formatting
-    const prompt = this.buildFormattingPrompt(text, targetPlatform, maxLength, optimizeForSEO);
+    const prompt = this.buildFormattingPrompt(
+      text,
+      targetPlatform,
+      maxLength,
+      optimizeForSEO,
+    );
 
     // Get AI-formatted content
     const formattedText = await this.getAIFormattedContent(prompt);
@@ -125,7 +130,10 @@ Respond with ONLY the title, nothing else.`;
     return optimized;
   }
 
-  private extractContentFromHTML(html: string): { text: string; images: Array<{ url: string; alt?: string }> } {
+  private extractContentFromHTML(html: string): {
+    text: string;
+    images: Array<{ url: string; alt?: string }>;
+  } {
     // Simple HTML parsing (in a real implementation, you might use a proper HTML parser)
     const text = html
       .replace(/<script[^>]*>.*?<\/script>/gi, "")
@@ -153,7 +161,7 @@ Respond with ONLY the title, nothing else.`;
     text: string,
     targetPlatform: string,
     maxLength?: number,
-    optimizeForSEO?: boolean
+    optimizeForSEO?: boolean,
   ): string {
     let prompt = `Format the following content for ${targetPlatform}. `;
 

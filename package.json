@@ -23,7 +23,8 @@
     "test:chat:trigger": "node tests/automated/trigger-chat.js",
     "test:chat:auto": "node tests/automated/trigger-chat.js --auto",
     "test:chat:verify": "node tests/automated/trigger-chat.js --auto --verify",
-    "test:chat:integration": "node tests/automated/chat-integration-test.js"
+    "test:chat:integration": "node tests/automated/chat-integration-test.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.17",
@@ -61,6 +62,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
+    "msw": "^2.12.10",
     "patch-package": "^8.0.1",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
@@ -69,7 +71,8 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.8.3",
-    "vite": "^7.0.5"
+    "vite": "^7.0.5",
+    "vitest": "^4.0.18"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -5,7 +5,13 @@ import * as path from "path";
 import { app } from "electron";
 import * as fs from "fs";
 
-export type ReplayState = "idle" | "running" | "paused" | "manual_step" | "completed" | "error";
+export type ReplayState =
+  | "idle"
+  | "running"
+  | "paused"
+  | "manual_step"
+  | "completed"
+  | "error";
 
 export interface ReplayStatus {
   state: ReplayState;
@@ -32,7 +38,7 @@ export class ActionReplayer {
   public async startReplay(
     tab: Tab,
     options: ReplayOptions,
-    onStatusChange?: (status: ReplayStatus) => void
+    onStatusChange?: (status: ReplayStatus) => void,
   ): Promise<void> {
     if (this.state === "running") {
       throw new Error("Already replaying");
@@ -46,11 +52,17 @@ export class ActionReplayer {
     this.onStatusChange = onStatusChange;
 
     try {
-      console.log("[Replayer] Starting Playwright execution for recording:", this.recording.id);
+      console.log(
+        "[Replayer] Starting Playwright execution for recording:",
+        this.recording.id,
+      );
 
       // Get the script path
       const recordingsDir = path.join(app.getPath("userData"), "recordings");
-      const scriptPath = path.join(recordingsDir, `${this.recording.id}.spec.ts`);
+      const scriptPath = path.join(
+        recordingsDir,
+        `${this.recording.id}.spec.ts`,
+      );
 
       console.log("[Replayer] Script path:", scriptPath);
 
@@ -120,7 +132,10 @@ export class ActionReplayer {
   /**
    * Execute Playwright actions in the current browser tab
    */
-  private async executePlaywrightInCurrentTab(tab: Tab, scriptPath: string): Promise<void> {
+  private async executePlaywrightInCurrentTab(
+    tab: Tab,
+    scriptPath: string,
+  ): Promise<void> {
     // Read the script file and extract the commands
     const scriptContent = fs.readFileSync(scriptPath, "utf-8");
     console.log("[Replayer] Executing actions in current tab");
@@ -132,7 +147,11 @@ export class ActionReplayer {
       const trimmed = line.trim();
 
       // Skip comments and imports
-      if (trimmed.startsWith("//") || trimmed.startsWith("import") || !trimmed) {
+      if (
+        trimmed.startsWith("//") ||
+        trimmed.startsWith("import") ||
+        !trimmed
+      ) {
         continue;
       }
 
@@ -203,7 +222,11 @@ export class ActionReplayer {
     await tab.runJs(script);
   }
 
-  private async executeFill(tab: Tab, selector: string, value: string): Promise<void> {
+  private async executeFill(
+    tab: Tab,
+    selector: string,
+    value: string,
+  ): Promise<void> {
     const script = `
       (function() {
         const element = document.querySelector('${selector.replace(/'/g, "\\'")}');

@@ -31,9 +31,9 @@ const sidebarAPI = {
     electronAPI.ipcRenderer.on("chat-response", (_, data) => callback(data));
   },
 
-  onMessagesUpdated: (callback: (messages: any[]) => void) => {
+  onMessagesUpdated: (callback: (messages: unknown[]) => void) => {
     electronAPI.ipcRenderer.on("chat-messages-updated", (_, messages) =>
-      callback(messages)
+      callback(messages as unknown[]),
     );
   },
 
@@ -60,7 +60,7 @@ const sidebarAPI = {
     electronAPI.ipcRenderer.invoke("recorder-delete-recording", id),
 
   // Replayer APIs
-  replayerStart: (options: any) =>
+  replayerStart: (options: unknown) =>
     electronAPI.ipcRenderer.invoke("replayer-start", options),
 };
 

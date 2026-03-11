@@ -1,4 +1,4 @@
-import type { RecordedAction } from "./types/RecorderTypes";
+import type { RecordedAction, ElementSelector } from "./types/RecorderTypes";
 
 export interface PlaywrightScriptMetadata {
   id: string;
@@ -14,7 +14,7 @@ export class PlaywrightGenerator {
    */
   public static generate(
     metadata: PlaywrightScriptMetadata,
-    actions: RecordedAction[]
+    actions: RecordedAction[],
   ): string {
     const lines: string[] = [];
 
@@ -40,7 +40,7 @@ export class PlaywrightGenerator {
 
     // Process actions
     let lastUrl = metadata.targetSite;
-    let consolidatedInputs: Map<string, string> = new Map();
+    const consolidatedInputs: Map<string, string> = new Map();
     let lastInputSelector: string | null = null;
 
     for (let i = 0; i < actions.length; i++) {
@@ -58,7 +58,13 @@ export class PlaywrightGenerator {
           // Flush any pending input first
           if (lastInputSelector && consolidatedInputs.has(lastInputSelector)) {
             const value = consolidatedInputs.get(lastInputSelector)!;
-            lines.push(this.generateInputCommand(lastInputSelector, value, action.selector));
+            lines.push(
+              this.generateInputCommand(
+                lastInputSelector,
+                value,
+                action.selector,
+              ),
+            );
             consolidatedInputs.clear();
             lastInputSelector = null;
           }
@@ -66,13 +72,19 @@ export class PlaywrightGenerator {
           lines.push(this.generateClickCommand(action));
           break;
 
-        case "input":
+        case "input": {
           // Consolidate multiple input events into one
           const inputSelector = this.getSelectorString(action.selector);
           if (inputSelector !== lastInputSelector && lastInputSelector) {
             // Different input field - flush the previous one
-            const value = consolidatedInputs.get(lastInputSelector)!;
-            lines.push(this.generateInputCommand(lastInputSelector, value, action.selector));
+            const prevValue = consolidatedInputs.get(lastInputSelector)!;
+            lines.push(
+              this.generateInputCommand(
+                lastInputSelector,
+                prevValue,
+                action.selector,
+              ),
+            );
             consolidatedInputs.clear();
           }
           lastInputSelector = inputSelector;
@@ -85,17 +97,26 @@ export class PlaywrightGenerator {
             this.getSelectorString(nextAction.selector) !== inputSelector
           ) {
             const value = consolidatedInputs.get(inputSelector)!;
-            lines.push(this.generateInputCommand(inputSelector, value, action.selector));
+            lines.push(
+              this.generateInputCommand(inputSelector, value, action.selector),
+            );
             consolidatedInputs.clear();
             lastInputSelector = null;
           }
           break;
+        }
 
         case "keypress":
           // Flush any pending input first
           if (lastInputSelector && consolidatedInputs.has(lastInputSelector)) {
             const value = consolidatedInputs.get(lastInputSelector)!;
-            lines.push(this.generateInputCommand(lastInputSelector, value, action.selector));
+            lines.push(
+              this.generateInputCommand(
+                lastInputSelector,
+                value,
+                action.selector,
+              ),
+            );
             consolidatedInputs.clear();
             lastInputSelector = null;
           }
@@ -115,10 +136,11 @@ export class PlaywrightGenerator {
           lines.push(this.generateManualStepComment(action));
           break;
 
-        case "wait":
+        case "wait": {
           const waitMs = parseInt(action.value || "1000");
           lines.push(`  await page.waitForTimeout(${waitMs});`);
           break;
+        }
       }
     }
 
@@ -130,14 +152,16 @@ export class PlaywrightGenerator {
 
   private static generateClickCommand(action: RecordedAction): string {
     const selector = this.getPreferredSelector(action.selector);
-    const comment = action.selector?.text ? ` // "${action.selector.text}"` : "";
+    const comment = action.selector?.text
+      ? ` // "${action.selector.text}"`
+      : "";
     return `  await page.click('${this.escapeSelector(selector)}');${comment}`;
   }
 
   private static generateInputCommand(
     selectorStr: string,
     value: string,
-    selectorObj: any
+    selectorObj: ElementSelector | undefined,
   ): string {
     const comment = selectorObj?.text ? ` // "${selectorObj.text}"` : "";
     return `  await page.fill('${this.escapeSelector(selectorStr)}', '${this.escapeValue(value)}');${comment}`;
@@ -182,7 +206,9 @@ export class PlaywrightGenerator {
    * Get the preferred selector from the selector object
    * Priority: ID > CSS > Name > XPath
    */
-  private static getPreferredSelector(selector: any): string {
+  private static getPreferredSelector(
+    selector: ElementSelector | undefined,
+  ): string {
     if (!selector) return "body";
 
     if (selector.id) {
@@ -208,7 +234,9 @@ export class PlaywrightGenerator {
   /**
    * Get selector as a string (for comparison/deduplication)
    */
-  private static getSelectorString(selector: any): string {
+  private static getSelectorString(
+    selector: ElementSelector | undefined,
+  ): string {
     return this.getPreferredSelector(selector);
   }
 
@@ -223,6 +251,9 @@ export class PlaywrightGenerator {
    * Escape single quotes and newlines in values
    */
   private static escapeValue(value: string): string {
-    return value.replace(/'/g, "\\'").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+    return value
+      .replace(/'/g, "\\'")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r");
   }
 }
