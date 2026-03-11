@@ -1,4 +1,5 @@
-const IP_LOOKUP_URL = "https://ipapi.co/json";
+// ip-api.com works from Node.js/Electron main process (HTTP is fine here — no browser mixed-content restriction)
+const IP_LOOKUP_URL = "http://ip-api.com/json";
 const TIMEOUT_MS = 2500;
 const IPV4_REGEX =
   /^((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
@@ -13,7 +14,7 @@ export interface IpLookupResult {
 }
 
 /**
- * Fetches the user's public IPv4 address and geolocation from ipapi.co.
+ * Fetches the user's public IPv4 address and geolocation from ip-api.com.
  * @returns IpLookupResult — validated IPv4 + best-effort geo fields (null when unavailable)
  * @throws Error if the network request fails, times out, returns a non-2xx status,
  *         returns an unexpected shape, or returns a non-IPv4 string
@@ -37,17 +38,25 @@ export async function fetchPublicIp(): Promise<IpLookupResult> {
 
     const data = (await response.json()) as unknown;
 
-    if (
-      typeof data !== "object" ||
-      data === null ||
-      !("ip" in data) ||
-      typeof (data as Record<string, unknown>).ip !== "string"
-    ) {
+    if (typeof data !== "object" || data === null) {
       throw new Error("IP lookup returned unexpected response shape");
     }
 
     const record = data as Record<string, unknown>;
-    const ip = record.ip as string;
+
+    // ip-api.com signals errors via a 200 with { status: "fail", message: "..." }
+    if (record.status === "fail") {
+      const reason =
+        typeof record.message === "string" ? record.message : "unknown";
+      throw new Error(`IP lookup service error: ${reason}`);
+    }
+
+    // ip-api.com returns the IP in the "query" field
+    if (!("query" in data) || typeof record.query !== "string") {
+      throw new Error("IP lookup returned unexpected response shape");
+    }
+
+    const ip = record.query as string;
 
     if (!IPV4_REGEX.test(ip)) {
       throw new Error("IP lookup returned an invalid IPv4 address");
@@ -59,10 +68,10 @@ export async function fetchPublicIp(): Promise<IpLookupResult> {
     return {
       ip,
       city: stringOrNull(record.city),
-      region: stringOrNull(record.region),
-      country: stringOrNull(record.country_name),
-      latitude: typeof record.latitude === "number" ? record.latitude : null,
-      longitude: typeof record.longitude === "number" ? record.longitude : null,
+      region: stringOrNull(record.regionName), // ip-api.com uses "regionName"
+      country: stringOrNull(record.country),
+      latitude: typeof record.lat === "number" ? record.lat : null,
+      longitude: typeof record.lon === "number" ? record.lon : null,
     };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {

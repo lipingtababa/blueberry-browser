@@ -10,14 +10,15 @@ function mockOkResponse(body: unknown): Response {
   });
 }
 
-// Full ipapi.co response shape
+// Full ip-api.com response shape
 const FULL_IPAPI_RESPONSE = {
-  ip: "203.0.113.42",
+  query: "203.0.113.42",
   city: "San Francisco",
-  region: "California",
-  country_name: "United States",
-  latitude: 37.7749,
-  longitude: -122.4194,
+  regionName: "California",
+  country: "United States",
+  lat: 37.7749,
+  lon: -122.4194,
+  status: "success",
 };
 
 describe("fetchPublicIp", () => {
@@ -50,7 +51,7 @@ describe("fetchPublicIp", () => {
   // Geo fields entirely absent — all return null
   test("returns null geo fields when API response omits them entirely", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
-      mockOkResponse({ ip: "1.2.3.4" }),
+      mockOkResponse({ query: "1.2.3.4", status: "success" }),
     );
 
     const result = await fetchPublicIp();
@@ -68,7 +69,7 @@ describe("fetchPublicIp", () => {
   // Geo fields partially present — present ones returned, missing ones null
   test("returns null for geo fields that are partially missing", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
-      mockOkResponse({ ip: "1.2.3.4", city: "Berlin" }),
+      mockOkResponse({ query: "1.2.3.4", city: "Berlin", status: "success" }),
     );
 
     const result = await fetchPublicIp();
@@ -81,6 +82,17 @@ describe("fetchPublicIp", () => {
       latitude: null,
       longitude: null,
     });
+  });
+
+  // Service error — ip-api.com returns 200 with { status: "fail", message: "..." }
+  test("throws when API returns status: fail with a reason message", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      mockOkResponse({ status: "fail", message: "private range" }),
+    );
+
+    await expect(fetchPublicIp()).rejects.toThrow(
+      "IP lookup service error: private range",
+    );
   });
 
   // Non-OK HTTP status
@@ -140,8 +152,8 @@ describe("fetchPublicIp", () => {
     }
   }, 5000);
 
-  // Bad shape — missing ip field
-  test("throws when response body is missing the ip field", async () => {
+  // Bad shape — missing query field
+  test("throws when response body is missing the query field", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(mockOkResponse({}));
 
     await expect(fetchPublicIp()).rejects.toThrow(
@@ -149,9 +161,11 @@ describe("fetchPublicIp", () => {
     );
   });
 
-  // Bad shape — ip is not a string
-  test("throws when response body ip field is not a string", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValue(mockOkResponse({ ip: 42 }));
+  // Bad shape — query is not a string
+  test("throws when response body query field is not a string", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      mockOkResponse({ query: 42, status: "success" }),
+    );
 
     await expect(fetchPublicIp()).rejects.toThrow(
       "IP lookup returned unexpected response shape",
@@ -161,7 +175,7 @@ describe("fetchPublicIp", () => {
   // Invalid IPv4 — garbage string
   test("throws when response ip is not a valid IPv4 address", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
-      mockOkResponse({ ip: "not-an-ip" }),
+      mockOkResponse({ query: "not-an-ip", status: "success" }),
     );
 
     await expect(fetchPublicIp()).rejects.toThrow(
@@ -172,7 +186,7 @@ describe("fetchPublicIp", () => {
   // Invalid IPv4 — IPv6 address
   test("throws when response ip is an IPv6 address (not IPv4)", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
-      mockOkResponse({ ip: "2001:db8::1" }),
+      mockOkResponse({ query: "2001:db8::1", status: "success" }),
     );
 
     await expect(fetchPublicIp()).rejects.toThrow(
